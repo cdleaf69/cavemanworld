@@ -7,8 +7,8 @@ import { Campfire } from '../src/structures.js';
 import { CreatureRegistry, populateCreatures } from '../src/creatures.js';
 import { biomeAt } from '../src/world.js';
 
-test('three lakes have dry, walkable shores and solid water',()=>{
-  assert.equal(LAKES.length,3);
+test('six lakes have dry, walkable shores and solid water',()=>{
+  assert.equal(LAKES.length,6);
   for(const lake of LAKES){
     assert.equal(lakeAt(lake.x,lake.y)?.id,lake.id);
     assert.equal(canWalk(lake.x,lake.y,'surface'),false);

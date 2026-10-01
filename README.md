@@ -25,7 +25,7 @@ Open **http://localhost:3000**. Press `Ctrl+C` in the terminal to stop the serve
 | Sprint | Hold Shift while moving |
 | Beta travel boost | Hold Alt while moving for 10× current speed (stacks with Shift) |
 | Zoom | Mouse wheel, `+`, or `-` |
-| Pick up dropped loot, forage loose items, open a campfire, or use a cave entrance | `E` |
+| Pick up loot, forage, open campfires or casino games, and use entrances | `E` |
 | Gather or mine a resource node, place a selected campfire, or attack | Left click on the object or ground |
 | Attack an animal or cave mob | Left click toward it |
 | Beta levels and item grants | `7` |
@@ -40,7 +40,7 @@ Open **http://localhost:3000**. Press `Ctrl+C` in the terminal to stop the serve
 | Show spawn zones | `F3` |
 | Show field guide | `?` button |
 
-The 36,000 × 21,000 unit surface takes about **3 minutes 49 seconds** to cross a full horizontal span at 157.5 units/second before route detours. Shift increases movement speed to exactly **2.5×** (393.75 units/second). Alt provides the temporary 10× beta travel boost and stacks with sprint. W/A/S/D move along the world axes; holding two perpendicular keys, such as W and D, moves diagonally. Diagonal input is normalized to the same overall speed. The mouse independently turns the player's gaze and pans the top-down camera at normal zoom. Zooming in smoothly reduces that pan and centers the camera on the player by the first full zoom-in step (about 0.76× zoom). The map stays north-up and fully visible. This camera motion remains local; future multiplayer position events use world coordinates and facing, with no camera state. The Central Village connects to Elderwood, Frostfall, Mirefen, Redstone Reach, and Ashen Crown by continuous footpaths without dashed divider markings. Eight surface entrances lead to connected upper caves, and six distinct descents lead to an 17,600 × 9,000 unit lower cave map. Huts, placed campfires, water, world bounds, and cave walls have collision. Trees, ores, rocks, bushes, and scenery can be walked through.
+The 54,000 × 35,000 unit surface has **2.5× its previous area** and takes about **5 minutes 43 seconds** to cross a full horizontal span at 157.5 units/second before route detours. Shift increases movement speed to exactly **2.5×** (393.75 units/second). Alt provides the temporary 10× beta travel boost and stacks with sprint. W/A/S/D move along the world axes; holding two perpendicular keys, such as W and D, moves diagonally. Diagonal input is normalized to the same overall speed. WASD controls the four facing directions; walking north shows the back of the head without eyes. The mouse independently pans the top-down camera at normal zoom. Zooming in smoothly reduces that pan and centers the camera on the player by the first full zoom-in step (about 0.76× zoom). The map stays north-up and fully visible. This camera motion remains local; future multiplayer position events use world coordinates and facing, with no camera state. The Central Village connects to Elderwood, Frostfall, Mirefen, Redstone Reach, and Ashen Crown by continuous footpaths without dashed divider markings. Twelve surface entrances lead to connected upper caves, and six distinct descents lead to an 17,600 × 9,000 unit lower cave map. Huts, the casino and its furniture, placed campfires, water, world bounds, and cave walls have collision. Trees, ores, rocks, bushes, and scenery can be walked through.
 
 ## First steps and equipment
 
@@ -59,7 +59,7 @@ Craft a campfire with **4 wood + 4 stone**. Select its hotbar slot and click nea
 
 ### Lakes and fishing
 
-The original Moonpool now has two companions: **Hearthmere**, south of the village, and **Willowmere Tarn**, in the southern marsh. All three have solid water and walkable shores. Craft a **Fishing Rod** from **3 sticks + 2 wood + 2 leaves**, then put it on your hotbar and select it. From shore, click lake water within casting range. After the bobber signals a bite, click it or press `E` before the fish escapes. Each catch gives one raw fish and 10 XP. Cook raw fish in a fueled campfire. For a quick local fishing test, open `http://localhost:3000/?start=hearthmere`.
+Six lakes have solid water and walkable shores: **Moonpool**, **Hearthmere**, **Willowmere Tarn**, and the new **Fernwater**, **Lotus Mere**, and **Rainveil Pool** in the expanded regions. Craft a **Fishing Rod** from **3 sticks + 2 wood + 2 leaves**, then put it on your hotbar and select it. From shore, click lake water within casting range. After the bobber signals a bite, click it or press `E` before the fish escapes. Each catch gives one raw fish and 10 XP. Cook raw fish in a fueled campfire. For a quick local fishing test, open `http://localhost:3000/?start=hearthmere`.
 
 ### New ores and recipes
 
@@ -67,16 +67,16 @@ Ore veins have weighted rarity. **Copper** is common in Redstone Reach and its c
 
 ### Armor perks and matching tools
 
-Every armor grants one multiplier while equipped. **Health** raises maximum health, **power** raises combat and gathering strength, **defense** raises blocked damage, and **speed** raises walking and sprinting speed. The inventory shows the active perk and matching tools crafted. Craft every tool listed for that armor and hold one of those tools to raise its perk by 50% of its normal bonus. For example, a +18% health perk becomes +27%.
+Every armor grants **+12% maximum health**, more base protection, and one biome multiplier while equipped. **Health** raises maximum health, **power** raises combat and gathering strength, **defense** raises blocked damage, and **speed** raises walking and sprinting speed. The inventory shows the active perk and matching tools crafted. Craft every tool listed for that armor and hold one of those tools to raise its perk by 50% of its normal bonus. For example, a +18% health perk becomes +27%.
 
 | Armor | Origin | Perk |
 | --- | --- | --- |
 | Leaf Wrap, Wood Vest, Hide Wrap, Stone Hide | Surface starter materials | Health +8%, speed +8%, power +10%, defense +12%, respectively |
-| Iron Armor, Wing Cloak, Crawler Shell | Upper-cave materials | Defense +15%, speed +14%, health +15%, respectively |
-| Copper Armor, Quartz Armor, Amber Wrap | Redstone Reach, Frostfall, Mirefen | Power +15%, health +18%, speed +15%, respectively |
-| Obsidian Armor, Moonstone Armor | Ashen Crown, Moon Vault | Power +22%, defense +22%, respectively |
+| Iron Armor, Wing Cloak, Crawler Shell | Upper-cave materials | Defense +25%, speed +24%, health +25%, respectively |
+| Copper Armor, Quartz Armor, Amber Wrap | Redstone Reach, Frostfall, Mirefen | Power +24%, health +24%, speed +24%, respectively |
+| Obsidian Armor, Moonstone Armor | Ashen Crown, Moon Vault | Power +33%, defense +33%, respectively |
 
-Copper, quartz, and amber form one **upper-cave strength tier**: their armor blocks 5 damage, axes and pickaxes deal 9, and clubs deal 11 before perks. Obsidian and moonstone form one **deep-cave strength tier**: their armor blocks 8, axes and pickaxes deal 15, and clubs deal 17 before perks. The biome perk is the main distinction within each tier. Existing starter and creature-drop armor keeps its own progression and gets a perk too.
+Copper, quartz, and amber form one **upper-cave strength tier**: their armor blocks 9 damage, axes and pickaxes deal 9, and clubs deal 11 before perks. Obsidian and moonstone form one **deep-cave strength tier**: their armor blocks 13, axes and pickaxes deal 15, and clubs deal 17 before perks. The biome perk is the main distinction within each tier. Existing starter and creature-drop armor keeps its own progression and gets a perk too.
 
 ## Animals, cave combat, and health
 
@@ -158,18 +158,22 @@ Sprites now use thin dark-green/charcoal silhouette outlines baked into the spri
 
 ## Pixel interface
 
-The HUD and menus use solid green panels, square timber-colored frames, compact monospace labels, and hard-edged buttons. The small corner title leaves more of the world visible. Side panels stack automatically, and the pouch scrolls within the available height. Hotbar, prompts, and toolbar have dedicated spacing. Crafting, inventory, index, settings, campfire, and beta menus share the same style. Layout checked at 1280x720 and 800x600, including a full resource pouch. Existing HUD visibility settings and shortcuts remain available.
+The HUD and menus use moss and mineral colors, subtle pixel texture, beveled stone frames, compact monospace labels, and square controls. Warm sand accents mark selected slots and actions. The small corner title leaves more of the world visible. Side panels stack automatically, and the pouch scrolls within the available height. Hotbar, prompts, and toolbar have dedicated spacing. Crafting, inventory, index, settings, campfire, and beta menus share the same style. Existing HUD visibility settings and shortcuts remain available.
+
+The adventurer now has a stepped jaw and hair silhouette, ears, warm facial shading, tapered clothing, a hide sash, and articulated arms and boots. Left and right poses show a shaded torso flank, an offset belt and sash, and a slightly narrower shoulder stance. Both arms tilt toward the facing direction together, with longer visible forearms, elbow shading, and a subtler far-arm color. Forward walking uses a normal opposing arm swing. Equipped tools raise the holding hand, sway when carried, and animate through windup, strike, and recovery when used. The actual recipe image follows the hand; the fishing line follows the rotating rod tip through casting, reeling, walking, and jumping. Pixel arm poses are cached to avoid scaling seams and repeated drawing work. Two eyes and directional pupils remain visible when facing south, east, or west; north-facing poses show hair and the back of the head. Armor retains its material colors and the equipped recipe art remains attached to the front hand. Trees have slender trunks, stepped roots, compact dappled crowns, occasional leafy branches, and biome palettes; the stacked oval canopy shapes have been replaced. Ground colors vary gently across world coordinates, with irregular grass-to-path transitions and sparse color-matched flecks. Sprites and terrain details stay cached, and terrain generation stays in the worker.
+
+Visual polish checked in the localhost game at 1365×900 and in Inventory at 760×640. Movement, jumping, crafting display, and all four rendered directions were checked without browser errors. Main-thread frame work measured about 1.1–1.5 ms at normal zoom on this machine; 49 automated gameplay tests pass. Screenshots: `art-polish-preview.png`, `art-polish-crafting.png`, and `character-polish-review.png`.
 
 
 ## Creature awareness
 
-Hostile cave creatures now start chasing as soon as the player enters their expanded detection range: 850–1,000 world units depending on species. The protected area at a cave entrance is 135 units around the player; creatures still remain at least 210 units from the entrance itself. This lets them react sooner as the player walks out without attacking someone standing on the entrance. 
-pm test covers immediate pursuit at 750 units and entrance protection.
+Hostile cave creatures now start chasing as soon as the player enters their expanded detection range: roughly 1,170–1,700 world units depending on species and depth. The protected area at a cave entrance is 135 units around the player; creatures still remain at least 210 units from the entrance itself. This lets them react sooner as the player walks out without attacking someone standing on the entrance. 
+`npm test` covers immediate pursuit at 750 units and entrance protection.
 
 
 ## Wildlife and habitat variety
 
-Foxes, boars, and moss tortoises join rabbits and deer in biome-specific habitats. Cave Slimes appear in upper caves; charging Crystal Beetles appear deeper; Ember Golems inhabit the abyss and core. All underground species scale with depth: health is 1x / 1.8x / 2.8x / 4x, damage is 1x / 1.3x / 1.65x / 2.1x, and pursuit speed rises modestly. Shiny bonuses stack with depth and persist after respawn. Cave loose-stone targets are reduced from 20 to 13 per zone. Trees, shrubs, and boulders have multiple cached silhouettes and biome palettes. Open /variety-preview.html for the local art reference sheet.
+Foxes, boars, and moss tortoises join rabbits and deer in biome-specific habitats. Cave Slimes appear in upper caves; charging Crystal Beetles appear deeper; Ember Golems inhabit the abyss and core. All underground species scale with depth: health is 1.35x / 3.2x / 6x / 10x, damage is 1.15x / 1.65x / 2.3x / 3x, and pursuit speed is 1.45x / 1.8x / 2.15x / 2.5x. Shiny bonuses stack with depth and persist after respawn. Cave loose-stone targets are reduced from 20 to 13 per zone. Trees, shrubs, and boulders have multiple cached silhouettes and biome palettes. Open /variety-preview.html for the local art reference sheet.
 
 
 Equipped hand rocks, axes, pickaxes, and clubs now use the same recipe artwork as their inventory cards, without the card background. They render over the character's front hand in all four facing directions, including during a swing.
@@ -177,3 +181,74 @@ Equipped hand rocks, axes, pickaxes, and clubs now use the same recipe artwork a
 
 Surface bush spawning now uses scaled spacing and a local crowd limit across overlapping zones. This prevents dense bush walls while retaining forageable patches and the curated starter bushes near the village.
 
+
+## Expanded world and the Lucky Hearth
+
+The surface is now 54,000 × 35,000 units (2.5× the previous area). Eight new regions connect to the existing trails: Fernwild Expanse, Aurora Frontier, Ochre Dunes, Lotus Basin, Ember Peninsula, Southroot Forest, Rainveil Wetlands, and Amberstep Plateau. Three new lakes and four new entrances lead to additional connected upper cave chambers. Trees, forage, animals, and cave resources populate the new regions through their independent habitat modules. The atlas and minimap now sample the same blended terrain colors as the world, with wider transitions between biomes.
+
+**The Lucky Hearth casino** is southeast of the village, at **9,900 · 7,596**. Follow Hearthside Lane, stand at the doorway, and press **E** to enter. Walk to the slot machines or blackjack table and press **E** (or click nearby furniture). Walk back to the marked exit and press **E** to leave.
+
+- **Slots:** choose a 10, 20, or 50 chip bet and spin. Three matching symbols return the listed multiplier; a pair returns the bet; other combinations return zero.
+- **Blackjack:** Deal, Hit, and Stand against a dealer who stands on every 17. Aces count as 1 or 11. Blackjack pays 3:2, ordinary wins 1:1, and ties return the bet. Finish a hand before wagering again.
+- Start with **100 free play chips**. If fewer than 10 remain, the panel offers another 100. Chips are session-only, have no cash value, and reset on refresh. No service or account is required.
+- Quick visit: **http://localhost:3000/?start=lucky-hearth**. Direct interior test: **http://localhost:3000/?layer=casino**.
+
+All 22 pickaxes now have distinct original pixel silhouettes, mineral details, and wrapped handles. The same artwork appears in crafting, inventory, and the player's hand. No external game assets are used.
+
+Verification: 58 automated tests pass, including connected paths and cave tunnels, collision, casino entrance/exit geometry, payouts and blackjack rules, and distinct pickaxe shapes. A browser play-through covered entry, slots, blackjack, exit, the atlas, movement, and the new northern cave and southern lake. No browser errors; approximately 69–75 FPS and 1.4–1.6 ms of main-thread game work per frame at normal zoom on this machine. Casino menus also fit a 760 × 640 viewport.
+
+## Tool artwork and sideways running
+
+Axes, clubs, the hand rock, and the fishing rod now share the detailed pixel equipment style of the pickaxes. Axes have varied blade silhouettes and bound hafts; clubs range from knotted wood and bone to faceted mineral heads, with distinct venom details. The rod has a reel, handle wraps, and a grey hook. Crafting, inventory, and held items use the same artwork. Existing fishing grip and line-tip coordinates are preserved.
+
+Sideways running uses shorter upper arms and bent elbows with lifted forearms, alternating through the stride. Equipped tools remain attached to the animated hand. Forward and backward arm swings retain their previous poses. Verified all tool images and held swing renders in the browser with no errors; movement and crafting remained smooth at about 75 FPS here. The existing 58 tests pass, plus a new focused regression check for bent side arms and unchanged north/south swings.
+
+## Towns, trading, forging, and house loot
+
+Four towns have connected trails, clear gathering squares, enterable shops, blacksmiths, and two houses each. The six original village huts can also be entered. Every building has its own interior map and returns to its own surface doorway. Furniture, walls, and exterior buildings block movement. Open **M** to find the town markers.
+
+| Town | Center | Casino |
+| --- | --- | --- |
+| Hearthside | 10,600 · 7,600 | The Lucky Hearth nearby |
+| Fernhaven | 40,700 · 9,000 | Fern Fortune |
+| Lotus Rest | 39,200 · 28,400 | — |
+| Aurora Camp | 45,300 · 4,000 | — |
+
+Stand at a door and press **E**. Inside, walk to the counter or chest and press **E**, or click the nearby counter/chest. Close the panel with Escape, then return to the marked exit and press E.
+
+- **General shops:** buy and sell all resource types in quantities of 1 or 5. Prices rise with material depth; buying costs twice the selling price. Start with 60 coins. Coins appear in Inventory and shop/forge panels. Creature defeats give 1/4/8/12/18 coins on the surface/upper/deep/abyss/core layers, in addition to dropped resources.
+- **Blacksmiths:** equip a club before entering the forge panel, then choose an owned tool to upgrade. There are three upgrades per tool. Each costs 20/40/60 coins plus 2/3/4 of the tool's material. Rough adds 6% strength, Fine adds 14%, and Masterwork adds 26%; bonuses stack and raise damage and harvest stats. Wood clubs roll 90% Rough / 10% Fine; core material clubs roll 5% Rough / 30% Fine / 65% Masterwork. Intermediate club materials improve the odds progressively. The panel shows the exact odds and costs. Upgrading preserves the item and does not equip the target automatically.
+- **Houses:** collect the supply chest once, then wait **120 seconds** for that house to refill. Most loot is a few common resources and 5–12 coins. A 12% lucky roll adds a small ore/glimmer find and 20 extra coins. Chest timers are separate per house, and keep advancing while exploring other areas.
+- **Casinos:** Hearthside and Fernhaven have slots and blackjack. Casino free play chips remain separate from shop coins.
+
+Quick test URLs: `http://localhost:3000/?start=hearth-shop`, `?start=hearth-smith`, `?start=village-house-1`, `?start=fern-casino`, `?start=lotus-shop`, and `?start=aurora-smith`. All economy, upgrades, and chest state last for the current local session; refresh starts fresh.
+
+### Stronger caves and rewarding armor
+
+| Cave depth | Enemy health | Damage | Movement speed | Material armor defense |
+| --- | --- | --- | --- | --- |
+| Upper | 1.35× | 1.15× | 1.45× | 9 |
+| Deep | 3.2× | 1.65× | 1.8× | 13 |
+| Abyss | 6× | 2.3× | 2.15× | 17 |
+| Core | 10× | 3× | 2.5× | 22 |
+
+Enemy detection grows with depth and exceeds the previous fixed update radius. Hostile creatures immediately pursue nearby players and retain awareness briefly when the player moves out of initial range. Entrance protection remains active. Shiny bonuses stack with these values. Starter gear is stronger too: Leaf Wrap blocks 3 damage and grants about 32% total maximum health with its health specialty. Armor specialties rise from roughly 18–25% early bonuses to 51% core bonuses, plus the common 12% health boost. Matching tool sets still increase the specialty bonus by 50%. Materials at the same depth retain equal base stats.
+
+Held items now have distinct south, north, east, and west carry/use angles. North-facing equipment is drawn on the far side of the body, and south-facing equipment over the near hand. The actual crafted image, hand attachment, jump offset, and fishing line-tip calculations stay shared. Unarmed forward/backward running and bent-elbow sideways running retain their animations.
+
+Verification: **65 automated tests pass**, covering trading balances, forge rarity odds and caps, exactly timed house refills, stronger enemy depth scaling and awareness, all building entrances/exits, connected unobstructed paths, armor perks, and four-direction held poses. Browser play-throughs covered shop buys/sells, a rare-club upgrade, house chest collection/countdown, the Fernhaven casino, all four towns, return passages, and a 760×640 menu layout, with no browser errors. Normal surface movement rendered around 75 FPS on this machine.
+
+
+## Swimming, coast, ranged weapons, and art updates
+
+Walk into lakes, rivers, or the eastern ocean to start swimming automatically. WASD steers an upright, partially submerged swimmer with alternating jointed arm strokes and flutter kicks; leave the water to walk again. Swimming uses 65% of land speed, with Shift and Alt scaling it as usual. Jumping, fishing, and ranged firing require dry land. Bridges remain dry crossings. Buildings and cave walls remain solid, and creatures still use land collision.
+
+Fernwater Lake is wider and substantially thicker. All six lakes have irregular shared shore outlines used by terrain, the atlas, water ripples, and swimming. The eastern coastline curves along the map edge, with a beach that uses the nearby biome's sand palette. Water ripples keep the stationary pixel-mask animation.
+
+Craft a **Wood Bow** (4 wood, 3 sticks, 3 leaves) or **Slingshot** (3 sticks, 1 hide, 2 leaves) in C. Equip from inventory or assign to a hotbar slot. Left-click to shoot toward the clicked world point. Bows consume one arrow; slingshots consume one stone. Blacksmiths sell **5 arrows for 10 coins**, without requiring a club. Projectiles travel through the world, hit one creature, stop at buildings/cave walls, and award the same XP, coins, and ground loot as melee defeats. Forge upgrades and armor power multipliers apply to ranged damage. The beta panel (7) can provide both weapons and ammunition.
+
+Side-running forearms have a shorter, lower bend; north/south running is preserved. Every club now uses a diagonal tapered baton silhouette inspired by the supplied reference. Shops have striped awnings and goods, forges stonework/chimneys/open fires, casinos towers and gold details, and houses different roof shapes/windows. Village huts have roof and window variations too; room rugs and workshop flooring vary by building type.
+
+New mechanics are covered by swim/shore collision, irregular lake geometry, crafting/equipping, and projectile hit/wall tests. Browser checks cover entering and leaving a lake, buying arrows, and firing both weapons, with no browser errors.
+
+Verification for this update: **68 automated tests pass**; browser checks reported no errors and roughly **75 FPS** (1.6–2.3 ms/frame) in the tested surface, lake, and ocean scenes.

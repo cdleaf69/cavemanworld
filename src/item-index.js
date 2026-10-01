@@ -2,6 +2,7 @@ import { MATERIALS } from './materials.js';
 import { RECIPES, RESOURCES } from './crafting.js';
 
 const RESOURCE_DETAILS={
+ arrows:['Arrows','Blacksmith ammunition counter','Ammunition for bows. Buy five for ten coins.','➶'],
   leaves:['Leaves','Bushes and fallen leaves','Starter plant material for wraps and tools.','✿'],
   sticks:['Sticks','Bushes and loose sticks','Starter handles for your first axe.','⌁'],
   wood:['Wood','Chop trees with an axe','Fuel for campfires and material for tools.','┃'],

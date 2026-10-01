@@ -285,6 +285,11 @@ export class WorldRenderer {
   drawProjectiles(ctx,registry,layer,bounds,time){
     for(const rock of registry.visible(bounds,layer)){
       ctx.save();ctx.translate(rock.x,rock.y);ctx.rotate(rock.angle);
+      if(rock.owner==='player'){
+        if(rock.type==='bow'){ctx.fillStyle='#b98655';ctx.fillRect(-21,-2,31,4);ctx.fillStyle='#b9d5d4';ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(6,-6);ctx.lineTo(6,6);ctx.fill();ctx.fillStyle='#efe6c3';ctx.fillRect(-21,-5,7,3);ctx.fillRect(-21,2,7,3);}
+        else{ctx.fillStyle='#718d96';ctx.fillRect(-6,-6,12,12);ctx.fillStyle='#b9d6d5';ctx.fillRect(-5,-5,7,4);}
+        ctx.restore();continue;
+      }
       ctx.beginPath();ctx.moveTo(-33,0);ctx.lineTo(-8,0);ctx.strokeStyle='#e7ad6888';ctx.lineWidth=8;ctx.lineCap='round';ctx.stroke();
       circle(ctx,0,0,12);ctx.fillStyle='#d79a65';ctx.fill();ctx.strokeStyle='#553e34';ctx.lineWidth=3;ctx.stroke();
       circle(ctx,4,-4,3);ctx.fillStyle='#ffe1a4';ctx.fill();ctx.restore();

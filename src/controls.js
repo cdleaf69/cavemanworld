@@ -27,7 +27,7 @@ export function keyboardFacing(keys,previous){
   return active.length?angles[active.at(-1)]:previous;
 }
 export function startJump(player){
-  if(player.jumpActive)return false;
+  if(player.jumpActive||player.swimming)return false;
   player.jumpActive=true;player.jumpTime=0;player.jumpHeight=0;return true;
 }
 export function updateJump(player,dt){

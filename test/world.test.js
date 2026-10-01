@@ -8,14 +8,14 @@ import { Gear, Tool, TIERS } from '../src/spawnables.js';
 import { BRIDGE_SPANS } from '../src/bridges.js';
 
 test('river crossings stay short and connected to their paths',()=>{
-  assert.equal(BRIDGE_SPANS.length,5);
+  assert.equal(BRIDGE_SPANS.length,6);
   assert.ok(BRIDGE_SPANS.every(span=>span.length<400));
   assert.ok(BRIDGE_SPANS.some(span=>span.path==='Mire Walk'));
 });
 
 test('surface uses the requested faster walking and sprint speeds', () => {
   assert.equal(WALK_SPEED,157.5);
-  assert.equal(SURFACE.width*SURFACE.height,18000*14000*3);
+  assert.equal(SURFACE.width*SURFACE.height,36000*21000*2.5);
   assert.equal(CAVES.width*CAVES.height,8000*5400*3);
   assert.equal(DEEP_CAVES.width*DEEP_CAVES.height,8800*6000*3);
   assert.equal(SPRINT_MULTIPLIER,2.5);

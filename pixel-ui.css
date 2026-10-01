@@ -33,3 +33,45 @@ kbd{border-radius:0;background:#435844;border:1px solid #8b9a78;box-shadow:0 2px
 .inventory-slot-clear{position:absolute;right:1px;top:0;border:0;background:#3b4b34;color:#ead5af;font-size:15px;line-height:15px;padding:0 3px;cursor:pointer;z-index:1}.inventory-slot-clear:hover{background:#875a43}
 .inventory-drag-item{cursor:grab;border:2px solid #8d9b72;border-radius:0;background:#405c40;color:var(--text);padding:6px 10px;font-size:11px}.recipe-card[draggable=true]{cursor:grab}.recipe-card.dragging,.inventory-drag-item.dragging{opacity:.55}.recipe-card.inventory-picked{border-color:#f3d98f;box-shadow:inset 0 0 0 1px #f3d98f}
 @media(max-width:760px){.inventory-hotbar-dock{top:67px;padding:8px}.inventory-hotbar{gap:3px}.inventory-hotbar-slot{height:58px}.inventory-hotbar-slot .item-art{width:29px;height:29px}.inventory-hotbar-heading span{font-size:9px}}
+
+/* Mineral colors, restrained pixel texture, and carved edges echo the world art. */
+:root{--ink:#293d40;--panel:#354b49;--inset:#273b3d;--rim:#a5b4a0;--light:#edce91;--text:#f6ebce;--muted:#c0cdbb}
+.location-card,.minimap-card,.inventory-card,.health-card,.zone-panel,.toolbar,.portal-prompt,.hotbar,.game-toast,.modal-card{
+  background-color:var(--panel);
+  background-image:repeating-linear-gradient(0deg,transparent 0 7px,#e2edd603 7px 8px),repeating-linear-gradient(90deg,transparent 0 7px,#142b2c08 7px 8px);
+  border-color:#738f87;
+  box-shadow:inset 1px 1px 0 #a8b8a0,inset -1px -1px 0 #20363a,2px 2px 0 #203537;
+}
+.location-card,.health-card,.minimap-card,.inventory-card{border-top-color:#b5c1a6}
+.brand{background:#2e4443;border-color:#89a094;box-shadow:inset 1px 1px #b1bd9f,2px 2px #203537}
+.brand-mark{color:#efc06e}.brand strong{font-size:11px;letter-spacing:.12em}.session{background:#2e4443e8;border-left-color:#8dd699;color:#e7e6c7}
+.place-name{color:#fff0c4;text-shadow:1px 1px #243b3d}.biome-name{color:#c4d9bd}.divider{background:#79968a;box-shadow:0 1px #253c3d}
+.eyebrow,.panel-title{color:#e9d197;letter-spacing:.08em}.location-meta span:first-child{color:#a3bba9}
+.health-track,.xp-track{height:13px;border-color:#21363a;background:#273d3e;box-shadow:0 1px #90a792}
+.health-track div{background:#dc8069;box-shadow:inset 0 2px #f4b48b,inset 0 -2px #b05c55}
+.xp-track div{background:#e4b960;box-shadow:inset 0 2px #ffe49b,inset 0 -2px #ad7c45}
+.health-card .level-heading{border-top-color:#79968a}.health-card .perk-text{color:#d7d6a8}
+#minimap{border-color:#253d3e;box-shadow:1px 1px #8fa38e}
+.hotbar{border-color:#bfa578;background-color:#4a5145;gap:5px}
+.hotbar-slot,.inventory-hotbar-slot{border-color:#728f87;background-color:#2e4444;box-shadow:inset 1px 1px #1d3438,inset -1px -1px #5e7b71;background-image:linear-gradient(135deg,#abc9ae08 25%,transparent 25%,transparent 75%,#abc9ae08 75%);background-size:8px 8px}
+.hotbar-slot.selected,.inventory-hotbar-slot.selected{background-color:#536d56;border-color:#efce8c;box-shadow:inset 1px 1px #fff0be,inset -1px -1px #879b69,0 -2px #efce8c}
+.hotbar-number,.hotbar-slot b{color:#f2d49c;text-shadow:1px 1px #243c3c}
+.inventory-hotbar-dock{background:#304643;border-color:#809e8c;box-shadow:inset 1px 1px #b3c1a4,2px 2px #203537}
+.recipe-card,.index-card,.settings-list label,.fire-stats>div,.perk-summary{background:#3d5650;border-color:#6d8a7c;box-shadow:inset 1px 1px #9bb69a22,inset -1px -1px #1e343744}
+.recipe-card:hover,.index-card:hover{background:#445e56;border-color:#a4bda0}
+.recipe-card .item-art,.index-card .item-art,.index-resource-icon{background:#2c4343;border-color:#78988c;box-shadow:inset 1px 1px #1b3438,1px 1px #a3b39833}
+.recipe-card h3,.index-card h4{color:#f4e4ba}.recipe-card .tier-tag{background:#2e4541;border-color:#658477}
+.recipe-card button,.bag-action,.bag-craft,.zone-actions button{background:#8a6b46;border-color:#d1b786;box-shadow:inset 1px 1px #efd19a44,inset -1px -1px #604b3e,2px 2px #243b38}
+.recipe-card.owned button,.recipe-card.equipped button{background:#557f5d;border-color:#b1cca0}
+.craft-tabs button{background:#2b4241;color:#c7d5bb}.craft-tabs button.active{background:#526c55;color:#ffe2a2;border-color:#ebc78c}
+.modal{background:#162f32b3}.modal-header{background-color:var(--panel);border-bottom-color:#78978a}
+.icon-button,.close-button{background:#456158;border-color:#94ac93;box-shadow:inset 1px 1px #c2cdae44,2px 2px #203537}
+.icon-button:hover,.close-button:hover{background:#5b7c61;border-color:#ecd094}
+kbd{background:#486259;border-color:#8fac92;box-shadow:0 2px #233a3c;color:#eedab5}
+.portal-prompt{border-color:#d5b77e;background-color:#344b43}.prompt-key{background:#ebc887;color:#344544;box-shadow:inset 1px 1px #fff0bd}
+.control-hint{color:#c1d0bb}.tool-button{color:#e7d6aa}.text-button:hover,.tool-button:hover{color:#fff1c3;text-shadow:1px 1px #223a3b}
+.extra-resources span,.craft-resources span{background:#2f4741;border-color:#72907c}
+.index-search,.zone-panel input[type=text],.zone-panel select,#betaQuantity,#betaItem{background:#2a4141;border-color:#7f9c8c;box-shadow:inset 1px 1px #1c3438}
+.inventory-drag-item{background:#435f4f;border-color:#93ab8b}.inventory-slot-clear{background:#385248;color:#e9d9b6}
+.toolbar{background-color:#304742}.vignette{box-shadow:inset 0 0 80px #28433c14}
+*{scrollbar-color:#8ea98f #293f3f}

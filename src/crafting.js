@@ -2,8 +2,10 @@ import { MATERIALS } from './materials.js';
 import { Progression } from './progression.js';
 import { Gear, Tool } from './spawnables.js';
 
-export const RESOURCES = ['leaves', 'sticks', 'wood', 'stone', 'iron', 'copper', 'quartz', 'amber', 'obsidian', 'moonstone', 'meat', 'cookedMeat', 'rawFish', 'cookedFish', 'hide', 'bone', 'wing', 'shell', 'venom', 'glimmer'];
+export const RESOURCES = ['arrows', 'leaves', 'sticks', 'wood', 'stone', 'iron', 'copper', 'quartz', 'amber', 'obsidian', 'moonstone', 'meat', 'cookedMeat', 'rawFish', 'cookedFish', 'hide', 'bone', 'wing', 'shell', 'venom', 'glimmer'];
 export const RECIPES = [
+  {id:'wood-bow',name:'Wood Bow',category:'tool',type:'bow',tier:'wood',damage:12,cost:{wood:4,sticks:3,leaves:3},detail:'Click to fire an arrow. Buy arrows from a blacksmith.'},
+  {id:'slingshot',name:'Slingshot',category:'tool',type:'slingshot',tier:'wood',damage:7,cost:{sticks:3,hide:1,leaves:2},detail:'Click to shoot a stone toward the cursor. Uses one stone per shot.'},
   { id:'campfire', name:'Campfire', category:'structure', tier:'wood', cost:{wood:4,stone:4}, detail:'Place it, add wood as fuel, then cook raw meat.' },
   { id:'fishing-rod', name:'Fishing Rod', category:'tool', type:'rod', tier:'wood', damage:1, cost:{sticks:3,wood:2,leaves:2}, detail:'Cast into a lake from the shore. Reel in fish when the bobber bites.' },
   { id:'hand-rock', name:'Hand Rock', category:'tool', type:'rock', tier:'stone', damage:3, cost:{stone:1}, detail:'A first weapon you can make from one pebble.' },
@@ -57,10 +59,11 @@ for(const material of MATERIALS){
     delete recipe.requires;
   }
 }
-for(const r of RECIPES)r.level??=r.tier==='iron'?3:1;
+for(const r of RECIPES){r.level??=r.tier==='iron'?3:1;if(r.category==='gear'&&!MATERIALS.some(m=>m.id===r.tier))r.defense=Math.ceil(r.defense*1.4)+1;if(r.category==='gear')r.detail=r.detail.replace(/blocks \d+ damage/,`blocks ${r.defense} damage`);}
 
 export class Inventory {
   constructor({level=1}={}) {
+    this.coins=60;
     this.progression=new Progression(level);
     this.resources = Object.fromEntries(RESOURCES.map(resource=>[resource,0]));
     this.owned = new Map();

@@ -22,7 +22,7 @@ export const CREATURE_KINDS = Object.freeze({
   ashMite: { name:'Ash Mite', temperament:'hostile', health:52, speed:92, radius:26, damage:18, attackRange:68, aggroRange:1050, loot:{obsidian:1,shell:2} },
 });
 
-export const DEPTH_DIFFICULTY=Object.freeze({surface:{health:1,damage:1,speed:1},cave:{health:1,damage:1,speed:1},deep:{health:1.8,damage:1.3,speed:1.08},abyss:{health:2.8,damage:1.65,speed:1.16},core:{health:4,damage:2.1,speed:1.24}});
+export const DEPTH_DIFFICULTY=Object.freeze({surface:{health:1,damage:1,speed:1},cave:{health:1.35,damage:1.15,speed:1.45},deep:{health:3.2,damage:1.65,speed:1.8},abyss:{health:6,damage:2.3,speed:2.15},core:{health:10,damage:3,speed:2.5}});
 
 const entranceSafe=(x,y,layer,radius=225)=>[...PORTALS,...DESCENTS].some(p=>p[layer]&&Math.hypot(x-p[layer].x,y-p[layer].y)<radius);
 const shinyRoll=(id,layer)=>{const n=[...id].reduce((v,c)=>Math.imul(v^c.charCodeAt(0),16777619),2166136261)>>>0;return n/4294967296<({core:.42,abyss:.35,deep:.28,cave:.065}[layer]??.02);};
@@ -34,6 +34,7 @@ export class Creature {
     Object.assign(this,{id,kind,x,y,homeX:x,homeY:y,layer,...species,shiny});
     const difficulty=DEPTH_DIFFICULTY[layer]||DEPTH_DIFFICULTY.surface;
     this.health=Math.ceil(species.health*difficulty.health);this.speed=Math.round(species.speed*difficulty.speed);this.damage=Math.ceil((species.damage||0)*difficulty.damage);
+    this.aggroRange=(species.aggroRange||0)*(1.3+(['cave','deep','abyss','core'].indexOf(layer)+1)*.08);this.alertUntil=0;
     if(shiny){this.name=`Shiny ${species.name}`;this.health=Math.ceil(this.health*1.6);this.speed=Math.round(this.speed*1.12);this.damage=Math.ceil(this.damage*1.2);this.loot={...Object.fromEntries(Object.entries(species.loot).map(([r,n])=>[r,n+1])),glimmer:({deep:2,abyss:3,core:4}[layer]||1)};}
     this.maxHealth=species.health;this.alive=true;this.facing=0;this.nextAttackAt=0;this.respawnAt=0;this.fleeUntil=0;this.hitUntil=0;
     this.maxHealth=this.health;this.windupUntil=0;this.chargeUntil=0;this.nextChargeAt=0;this.chargeHit=false;
@@ -42,6 +43,7 @@ export class Creature {
   hit(damage,now){
     if(!this.alive||damage<=0)return {ok:false};
     this.health=Math.max(0,this.health-damage);this.hitUntil=now+280;
+    if(this.temperament==='hostile')this.alertUntil=now+6000;
     if(this.temperament==='neutral')this.fleeUntil=now+4200;
     if(this.health>0)return {ok:true,dead:false};
     this.alive=false;this.respawnAt=now+60000;
@@ -49,11 +51,12 @@ export class Creature {
   }
   update(dt,now,player,canMove=canWalk){
     if(!this.alive){if(now>=this.respawnAt){this.alive=true;this.health=this.maxHealth;this.x=this.homeX;this.y=this.homeY;}return null;}
-    if(player.layer!==this.layer||Math.hypot(player.x-this.x,player.y-this.y)>1100)return null;
+    if(player.layer!==this.layer||Math.hypot(player.x-this.x,player.y-this.y)>Math.max(1100,this.aggroRange*1.4))return null;
     const dx=player.x-this.x,dy=player.y-this.y,distance=Math.hypot(dx,dy);
     const hostile=this.temperament==='hostile';
     const portalSafe=hostile&&entranceSafe(player.x,player.y,player.layer,135);
-    const chasing=hostile&&!portalSafe&&distance<this.aggroRange;
+    const chasing=hostile&&!portalSafe&&(distance<this.aggroRange||now<this.alertUntil&&distance<this.aggroRange*1.4);
+    if(chasing&&distance<this.aggroRange)this.alertUntil=now+4000;
     const fleeing=!hostile&&(distance<110||now<this.fleeUntil);
     let angle;
     if(chasing)angle=Math.atan2(dy,dx);

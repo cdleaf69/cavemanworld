@@ -1,12 +1,13 @@
 import { grantBetaItem } from './beta.js';
 import { LAYERS, LAYER_NAMES, portalDestination } from './world.js';
-import { SURFACE, CAVES, DEEP_CAVES, PORTALS, DESCENTS, LAKES, PLAYER_RADIUS, canWalk, nearestPortal, nearbyPlace, biomeAt, lakeAt } from './world.js';
+import { SURFACE, CAVES, DEEP_CAVES, PORTALS, DESCENTS, LAKES, PLAYER_RADIUS, canWalk, nearestPortal, nearbyPlace, biomeAt, lakeAt, waterAt } from './world.js';
 import { SpawnZoneManager, SPAWN_TYPES, RESOURCE_TYPES, BIOME_IDS } from './spawn-zones.js';
 import { SpawnableRegistry } from './spawnables.js';
 import { populateWorld } from './spawner.js';
 import { Inventory, RECIPES, RESOURCES } from './crafting.js';
 import { PixelWorldRenderer as WorldRenderer } from './pixel-renderer.js';
 import { worldBridge } from './network-hooks.js';
+import { rangedWeaponOrigin } from './player-animation.js';
 import { mouseLookOffset } from './camera.js';
 import { movementVector, keyboardFacing, startJump, updateJump, CARDINAL_DIRECTIONS } from './controls.js';
 import { CreatureRegistry, populateCreatures } from './creatures.js';
@@ -18,6 +19,10 @@ import { Campfire, StructureRegistry } from './structures.js';
 import { FishingSession } from './fishing.js';
 import { ARMOR_PERKS, armorEffects, perkPercent, scaledWeaponDamage, scaledHarvestTool } from './perks.js';
 import { indexEntries, resourceName, visibleResources } from './item-index.js';
+import { BUILDING_PORTALS,CASINO_BUILDING,casinoActivityAt } from './world.js';
+import { CasinoUI } from './casino-ui.js';
+import {TownUI} from './town-ui.js';
+import {buildingForLayer,TOWN_BUILDINGS,INTERIOR_ACTIVITY} from './town-data.js';
 
 const $ = id => document.getElementById(id);
 function activate(element,handler){element.addEventListener('click',handler);}
@@ -39,7 +44,7 @@ export { worldBridge, zones };
 const params=new URLSearchParams(location.search);
 const devMode=params.get('dev')==='1';
 const startLayer=Object.keys(LAYERS).includes(params.get('layer'))?params.get('layer'):'surface';
-const startPortal=[...PORTALS,...DESCENTS].find(p=>p.id===params.get('start'));
+const startPortal=[...PORTALS,...DESCENTS,...BUILDING_PORTALS].find(p=>p.id===params.get('start'));
 const startLake=LAKES.find(l=>l.id===params.get('start'));
 const startBridge=startLayer==='surface'&&params.get('start')==='mire-crossing'?{x:8200,y:7850}:null;
 const initial=startPortal?.[startLayer]||(startLayer==='surface'&&startLake?{x:startLake.x+startLake.rx+85,y:startLake.y}:null)||startBridge||LAYERS[startLayer]?.spawn||(startLayer==='deep'?DEEP_CAVES.spawn:startLayer==='cave'?{x:3950,y:2700}:SURFACE.spawn);
@@ -55,6 +60,9 @@ let selectedInventoryItem=null;
 let pointerInventoryDrag=null;
 const keys=new Set();
 const mouse={x:renderer.width/2,y:renderer.height/2};
+const casinoUI=new CasinoUI({openModal:()=>setModal('casinoModal',true),onInteraction:detail=>worldBridge.publishInteraction({...detail,x:player.x,y:player.y,layer})});
+const townUI=new TownUI({inventory,openModal:()=>setModal('townModal',true),onChange:detail=>{renderInventory();renderCrafting();renderHotbar();updateHud();worldBridge.publishInteraction({...detail,x:player.x,y:player.y,layer});}});
+function interiorActivity(){return buildingForLayer(layer)?.type!=='casino'&&buildingForLayer(layer)&&Math.hypot(player.x-INTERIOR_ACTIVITY.x,player.y-INTERIOR_ACTIVITY.y)<180;}
 
 function setModal(id,open){if(open)document.querySelectorAll('.modal').forEach(m=>m.classList.add('hidden'));$(id).classList.toggle('hidden',!open);if(id==='mapModal'&&open)drawFullMap();if(id==='craftModal'&&open){setCraftTab('craft');renderCrafting();}if(id==='inventoryModal'&&open)renderInventory();}
 function modalOpen(){return !!document.querySelector('.modal:not(.hidden)');}
@@ -81,9 +89,23 @@ function attack(aimFacing=player.facing){
   if(!target)return;
   const damage=scaledWeaponDamage(inventory.equippedTool,currentEffects().stats.power),result=target.hit(damage,now);
   if(!result.ok)return;
-  if(result.dead){inventory.progression.gain(layer==='core'?90:layer==='abyss'?65:layer==='deep'?45:25);drops.spawn(result.loot,target.x,target.y,layer,now);showToast(`${target.name} defeated · loot dropped nearby (E)`);}
+  rewardHit(target,result,damage,now);
+}
+function rewardHit(target,result,damage,now){
+  if(!result.ok)return;
+  if(result.dead){const coins=layer==='core'?18:layer==='abyss'?12:layer==='deep'?8:layer==='cave'?4:1;inventory.coins+=coins;inventory.progression.gain(layer==='core'?90:layer==='abyss'?65:layer==='deep'?45:25);drops.spawn(result.loot,target.x,target.y,layer,now);showToast(`${target.name} defeated · +${coins} coins · loot dropped nearby (E)`);}
   else showToast(`${target.name} · ${target.health}/${target.maxHealth} health`,850);
   worldBridge.publishInteraction({kind:'attack-creature',targetId:target.id,damage,x:player.x,y:player.y,layer});
+}
+function shoot(point){
+ const now=performance.now(),tool=inventory.equippedTool;
+ if(now<nextSwingAt||player.swimming)return;
+ const ammo=tool.type==='bow'?'arrows':'stone';
+ if(!inventory.consume(ammo,1)){showToast(tool.type==='bow'?'Buy arrows from a blacksmith first':'Pick up stones for slingshot ammunition');return;}
+ nextSwingAt=now+(tool.type==='bow'?550:420);player.swingUntil=now+250;
+ const origin=rangedWeaponOrigin(player,now,tool.type);
+ projectiles.shoot({...origin,point,damage:scaledWeaponDamage(tool,currentEffects().stats.power),layer,type:tool.type},now);
+ renderInventory();renderHotbar();worldBridge.publishInteraction({kind:'fire-projectile',type:tool.type,x:origin.x,y:origin.y,targetX:point.x,targetY:point.y,layer});
 }
 function gather(node){
   if(!node||Math.hypot(node.x-player.x,node.y-player.y)>node.radius+145){showToast('Move closer to gather');return;}
@@ -200,7 +222,7 @@ function placeCampfire(point){
   if((inventory.structures.campfire||0)<1){showToast('Craft another campfire');return;}
   const distance=Math.hypot(point.x-player.x,point.y-player.y);
   if(distance>190||distance<55){showToast('Place the campfire on nearby open ground');return;}
-  if(!canWalk(point.x,point.y,layer,52)||structures.blocks(point.x,point.y,layer,95)||nearestPortal(point.x,point.y,layer,145)){showToast('Choose open ground away from structures, water, and entrances');return;}
+  if(waterAt(point.x,point.y,layer)||!canWalk(point.x,point.y,layer,52)||structures.blocks(point.x,point.y,layer,95)||nearestPortal(point.x,point.y,layer,145)){showToast('Choose open ground away from structures, water, and entrances');return;}
   inventory.structures.campfire--;const fire=structures.add(new Campfire(point.x,point.y,layer));renderInventory();renderHotbar();showToast('Campfire placed · click it to add fuel and food');worldBridge.publishInteraction({kind:'place-structure',targetId:fire.id,x:point.x,y:point.y,layer});
 }
 function interact(){
@@ -209,6 +231,8 @@ function interact(){
   if(drop){drops.collect(drop);inventory.add(drop.resource,drop.amount);showToast(`Picked up ${drop.amount} ${drop.resource}`);renderInventory();renderCrafting();updateHud();worldBridge.publishInteraction({kind:'pickup-loot',targetId:drop.id,resource:drop.resource,amount:drop.amount,x:player.x,y:player.y,layer});return;}
   const portal=nearestPortal(player.x,player.y,layer);
   if(portal){transition();return;}
+  const building=buildingForLayer(layer);
+  if(building){if(building.type==='casino'){const activity=casinoActivityAt(player.x,player.y);if(activity)casinoUI.open(activity.id,building.name);}else if(interiorActivity())townUI.open(building);return;}
   const fire=structures.nearest(player.x,player.y,layer);
   if(fire){openFire(fire);return;}
   const node=spawnables.nearest(player.x,player.y,layer);
@@ -221,9 +245,9 @@ function transition(){
   fishing.cancel();
   layer=portalDestination(p,layer);
   projectiles.clear();
-  player.layer=layer;player.jumpActive=false;player.jumpHeight=0;const dest=p[layer];player.x=dest.x;player.y=dest.y;camera.x=player.x+camera.lookX;camera.y=player.y+camera.lookY;
+  player.layer=layer;player.swimming=false;player.jumpActive=false;player.jumpHeight=0;const dest=p[layer];player.x=dest.x;player.y=dest.y;camera.x=player.x+camera.lookX;camera.y=player.y+camera.lookY;
   lastTransition=performance.now();selectedZone=null;refreshZonePanel();drawFullMap();renderer.drawOverview($('minimap'),layer,player,zones,showZones);
-  worldBridge.publishInteraction({kind:from==='surface'?'enter-cave':layer==='surface'?'exit-cave':Object.keys(LAYERS).indexOf(layer)>Object.keys(LAYERS).indexOf(from)?'descend-cave':'ascend-cave',targetId:p.id,x:player.x,y:player.y,layer});
+  worldBridge.publishInteraction({kind:buildingForLayer(layer)?'enter-building':buildingForLayer(from)?'exit-building':from==='surface'?'enter-cave':layer==='surface'?'exit-cave':Object.keys(LAYERS).indexOf(layer)>Object.keys(LAYERS).indexOf(from)?'descend-cave':'ascend-cave',targetId:p.id,x:player.x,y:player.y,layer});
 }
 function handleKey(event,down){
   if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement)return;
@@ -283,6 +307,7 @@ document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if
 
 function itemName(id){return RECIPES.find(r=>r.id===id)?.name||'None';}
 function renderInventory(){
+  $('inventoryCoins').textContent=`${inventory.coins} coins`;
   const effect=currentEffects();
   for(const resource of RESOURCES){const counter=$(`count${resource[0].toUpperCase()+resource.slice(1)}`);if(counter){counter.textContent=inventory.resources[resource];counter.parentElement.classList.toggle('hidden',inventory.resources[resource]<=0);}}
   const extras=$('extraResources');extras.replaceChildren();
@@ -313,7 +338,7 @@ function renderInventory(){
     const recipe=RECIPES.find(r=>r.id===id),equipped=inventory.equippedTool?.id===id||inventory.equippedGear?.id===id;
     const card=document.createElement('div');card.className=`recipe-card owned ${equipped?'equipped':''}`;
     const info=document.createElement('div'),title=document.createElement('h3'),detail=document.createElement('p'),button=document.createElement('button');
-    title.textContent=recipe.name;detail.textContent=`${recipe.tier} ${recipe.category==='gear'?'armor':recipe.type} · ${recipe.category==='gear'?`${item.defense} damage blocked · ${ARMOR_PERKS[id]?`${ARMOR_PERKS[id].stat} ${perkPercent(ARMOR_PERKS[id].base)}`:''}`:`${item.damage} damage`} · ${equipped?'equipped':'in bag'}`;
+    title.textContent=recipe.name;detail.textContent=`${recipe.tier} ${recipe.category==='gear'?'armor':recipe.type} · ${recipe.category==='gear'?`${item.defense} damage blocked · +12% max health · ${ARMOR_PERKS[id]?`${ARMOR_PERKS[id].stat} ${perkPercent(ARMOR_PERKS[id].base)}`:''}`:`${item.damage} damage${item.upgradeLevel?` · ${item.upgradeQuality} +${Math.round(item.upgradeBonus*100)}% (${item.upgradeLevel}/3)`:''}`} · ${equipped?'equipped':'in bag'}`;
     if(recipe.category==='gear'){
       button.textContent=equipped?'Unequip':'Equip';
       activate(button,()=>{if(equipped)inventory.unequip(id);else inventory.equip(id);currentEffects();renderInventory();renderCrafting();updateHud();});
@@ -344,7 +369,7 @@ function renderCrafting(){
     const info=document.createElement('div'),title=document.createElement('h3'),tier=document.createElement('span'),description=document.createElement('p'),cost=document.createElement('small'),button=document.createElement('button');
     title.textContent=recipe.name;tier.className='tier-tag';tier.textContent=`${recipe.tier} · Lv ${recipe.level}`;title.append(tier);
     const perk=ARMOR_PERKS[recipe.id];
-    description.textContent=recipe.detail+(perk?` ${perk.biome}: ${perkPercent(perk.base)} ${perk.stat}; ${perkPercent(1+(perk.base-1)*1.5)} with complete tool set and matching tool equipped.`:'');cost.textContent=Object.entries(recipe.cost).map(([r,n])=>`${n} ${r}`).join(' · ')+(recipe.requires?` · Requires ${itemName(recipe.requires)}`:'')+(perk?` · Set: ${perk.tools.map(itemName).join(', ')}`:'');
+    description.textContent=recipe.detail+(perk?` +12% maximum health. ${perk.biome}: ${perkPercent(perk.base)} ${perk.stat}; ${perkPercent(1+(perk.base-1)*1.5)} with complete tool set and matching tool equipped.`:'');cost.textContent=Object.entries(recipe.cost).map(([r,n])=>`${n} ${r}`).join(' · ')+(recipe.requires?` · Requires ${itemName(recipe.requires)}`:'')+(perk?` · Set: ${perk.tools.map(itemName).join(', ')}`:'');
     button.textContent=!owned&&inventory.progression.level<recipe.level?`Level ${recipe.level}`:recipe.category==='structure'?'Craft':owned?'Inventory':'Craft';button.disabled=!owned&&!inventory.canCraft(recipe);
     activate(button,()=>{
       if(owned){setModal('inventoryModal',true);return;}
@@ -412,16 +437,20 @@ activate($('zoneExport'),()=>{
 function mouseWorld(event){const r=canvas.getBoundingClientRect();return renderer.screenToWorld(event.clientX-r.left,event.clientY-r.top,camera,zoom);}
 function finishFishing(){
   const result=fishing.reel(performance.now(),inventory);showToast(result.message);
-  if(result.ok){renderInventory();renderCrafting();renderHotbar();updateHud();worldBridge.publishInteraction({kind:'catch-fish',resource:'rawFish',amount:1,x:player.x,y:player.y,layer});}
+  if(result.ok){player.swingUntil=performance.now()+250;renderInventory();renderCrafting();renderHotbar();updateHud();worldBridge.publishInteraction({kind:'catch-fish',resource:'rawFish',amount:1,x:player.x,y:player.y,layer});}
 }
 canvas.addEventListener('pointerdown',event=>{
   if(modalOpen())return;
   if(!showZones){if(event.button===0){const p=mouseWorld(event);const aimFacing=Math.atan2(p.y-player.y,p.x-player.x);
+    const building=buildingForLayer(layer);
+    if(building){if(nearestPortal(p.x,p.y,layer)&&nearestPortal(player.x,player.y,layer))transition();else if(building.type==='casino'){const activity=casinoActivityAt(p.x,p.y,200);if(activity&&Math.hypot(player.x-activity.activity.x,player.y-activity.activity.y)<180)casinoUI.open(activity.id,building.name);else showToast('Walk up to a slot machine or the blackjack table');}else if(interiorActivity()&&Math.hypot(p.x-550,p.y-225)<240)townUI.open(building);else showToast('Walk up to the counter or supply chest');return;}
+    if(['bow','slingshot'].includes(inventory.equippedTool?.type)){shoot(p);return;}
+    if(layer==='surface'){const b=TOWN_BUILDINGS.find(b=>Math.abs(p.x-b.x)<210&&Math.abs(p.y-b.y)<220);if(b){if(nearestPortal(player.x,player.y,layer)?.id===b.id)transition();else showToast(`Walk to the ${b.sign.toLowerCase()} entrance`);return;}}
     const fire=structures.at(p.x,p.y,layer);if(fire){if(inventory.equippedTool?.type==='pickaxe')mineCampfire(fire);else if(Math.hypot(fire.x-player.x,fire.y-player.y)<fire.radius+145)openFire(fire);else showToast('Move closer to the campfire');return;}
     const node=spawnables.at(p.x,p.y,layer);if(node){gather(node);return;}
     if(hotbar.current?.kind==='structure'&&hotbar.current.id==='campfire'){placeCampfire(p);return;}
     if(fishing.active&&Math.hypot(p.x-fishing.castPoint.x,p.y-fishing.castPoint.y)<65){finishFishing();return;}
-    if(lakeAt(p.x,p.y)){const result=fishing.cast(player,inventory.equippedTool,p,performance.now());showToast(result.message);if(result.ok)worldBridge.publishInteraction({kind:'cast-line',targetId:fishing.lake.id,x:p.x,y:p.y,layer});return;}
+    if(lakeAt(p.x,p.y)){const result=fishing.cast(player,inventory.equippedTool,p,performance.now());showToast(result.message);if(result.ok){player.swingUntil=performance.now()+250;worldBridge.publishInteraction({kind:'cast-line',targetId:fishing.lake.id,x:p.x,y:p.y,layer});}return;}
     attack(aimFacing);}return;}
   const p=mouseWorld(event);
   if(devMode&&selectedZone){const index=selectedZone.vertices.findIndex(v=>Math.hypot(v.x-p.x,v.y-p.y)<Math.max(30,18/zoom));if(index>=0){dragVertex=index;canvas.setPointerCapture(event.pointerId);return;}}
@@ -438,28 +467,31 @@ canvas.addEventListener('pointerup',stopDragging);canvas.addEventListener('point
 function update(dt,now){
   if(!modalOpen()){
     player.facing=keyboardFacing(keys,player.facing);
+    player.swimming=waterAt(player.x,player.y,layer);
+    if(player.swimming){player.jumpActive=false;player.jumpHeight=0;fishing.cancel();}
     updateJump(player,dt);
     player.moving=false;
-    const {dx,dy}=movementVector({keys,sprinting:keys.has('shift'),betaBoost:keys.has('alt'),speedMultiplier:currentEffects().stats.speed,dt});
+    const {dx,dy}=movementVector({keys,sprinting:keys.has('shift'),betaBoost:keys.has('alt'),speedMultiplier:currentEffects().stats.speed*(player.swimming ? .65 : 1),dt});
     if(dx||dy){
       const beforeX=player.x,beforeY=player.y;
       // Small steps preserve hut, river, and cave-wall collision at beta speed.
       const steps=Math.ceil(Math.hypot(dx,dy)/18);
       for(let i=0;i<steps;i++){
         const sx=dx/steps,sy=dy/steps;
-        if(canWalk(player.x+sx,player.y,layer,PLAYER_RADIUS)&&!structures.blocks(player.x+sx,player.y,layer,PLAYER_RADIUS))player.x+=sx;
-        if(canWalk(player.x,player.y+sy,layer,PLAYER_RADIUS)&&!structures.blocks(player.x,player.y+sy,layer,PLAYER_RADIUS))player.y+=sy;
+        if(canWalk(player.x+sx,player.y,layer,PLAYER_RADIUS,true)&&!structures.blocks(player.x+sx,player.y,layer,PLAYER_RADIUS))player.x+=sx;
+        if(canWalk(player.x,player.y+sy,layer,PLAYER_RADIUS,true)&&!structures.blocks(player.x,player.y+sy,layer,PLAYER_RADIUS))player.y+=sy;
       }
       player.moving=Math.hypot(player.x-beforeX,player.y-beforeY)>.01;
     }
   }else player.moving=false;
   structures.update(dt);
+  if(!$('townModal').classList.contains('hidden')&&townUI.building?.type==='house'&&now-lastHud>170)townUI.render();
   if(openCampfire&&!$('campfireModal').classList.contains('hidden')&&now-lastHud>170)renderCampfire();
   if(!modalOpen()){
     const hurt=(damage,source)=>{
       const result=vitals.takeDamage(damage,inventory.equippedGear,now,currentEffects().stats.defense);
       if(result.damage){showToast(`${source} hit you · −${result.damage} health`,900);updateHud();}
-      if(result.dead){vitals.respawn(now);fishing.cancel();layer='surface';player.layer=layer;player.jumpActive=false;player.jumpHeight=0;player.x=SURFACE.spawn.x;player.y=SURFACE.spawn.y;camera.lookX=0;camera.lookY=0;camera.x=player.x;camera.y=player.y;projectiles.clear();showToast('You fell in the caves and returned to the village',3500);worldBridge.publishInteraction({kind:'respawn',x:player.x,y:player.y,layer});}
+      if(result.dead){vitals.respawn(now);fishing.cancel();layer='surface';player.layer=layer;player.swimming=false;player.jumpActive=false;player.jumpHeight=0;player.x=SURFACE.spawn.x;player.y=SURFACE.spawn.y;camera.lookX=0;camera.lookY=0;camera.x=player.x;camera.y=player.y;projectiles.clear();showToast('You fell in the caves and returned to the village',3500);worldBridge.publishInteraction({kind:'respawn',x:player.x,y:player.y,layer});}
       return result.dead;
     };
     let defeated=false;
@@ -467,7 +499,7 @@ function update(dt,now){
       if(strike.projectile)projectiles.launch(strike.projectile,strike.creature.id,now);
       else if(hurt(strike.damage,strike.creature.name)){defeated=true;break;}
     }
-    if(!defeated)for(const hit of projectiles.update(dt,now,player)){if(hurt(hit.damage,'Scorpion rock'))break;}
+    if(!defeated)for(const hit of projectiles.update(dt,now,player,creatures)){if(hit.target){rewardHit(hit.target,hit.result,hit.damage,now);renderInventory();renderCrafting();updateHud();}else if(hurt(hit.damage,'Scorpion rock'))break;}
     drops.update(now);
   }
   const fishUpdate=fishing.update(now,player);if(fishUpdate)showToast(fishUpdate);
@@ -499,18 +531,22 @@ function updateHud(){
   $('armorText').textContent=`${inventory.equippedGear?itemName(inventory.equippedGear.id):'No armor'} · ${armorReduction(inventory.equippedGear,effect.stats.defense)} damage blocked`;
   $('perkText').textContent=effect.perk?`${effect.perk.biome} ${effect.perk.stat} ${perkPercent(effect.stats[effect.perk.stat])}${effect.boosted?' · set boost':''}`:'No armor perk';
   const biome=biomeAt(player.x,player.y,layer),place=nearbyPlace(player.x,player.y,layer);
-  $('placeName').textContent=place;$('biomeName').textContent=`${biome.name} · ${LAYER_NAMES[layer]}`;
+  $('placeName').textContent=place;$('biomeName').textContent=buildingForLayer(layer)?`Interior · ${inventory.coins} coins`:`${biome.name} · ${LAYER_NAMES[layer]}`;
   $('coords').textContent=`${Math.round(player.x).toLocaleString()} · ${Math.round(player.y).toLocaleString()}`;
   const map=LAYERS[layer];$('mapSize').textContent=`${(map.width/1000).toFixed(map.width%1000?1:0)}k × ${(map.height/1000).toFixed(map.height%1000?1:0)}k units`;
   const p=nearestPortal(player.x,player.y,layer);
+  const activity=buildingForLayer(layer)?.type==='casino'&&!p?casinoActivityAt(player.x,player.y):null;
   targetDrop=drops.nearest(player.x,player.y,layer,performance.now());
   const nearFire=p||targetDrop?null:structures.nearest(player.x,player.y,layer);
   targetNode=p||targetDrop||nearFire?null:spawnables.nearest(player.x,player.y,layer);
-  $('portalPrompt').classList.toggle('hidden',!fishing.active&&!p&&!targetDrop&&!targetNode&&!nearFire);
+  const townActivity=interiorActivity();
+  $('portalPrompt').classList.toggle('hidden',!fishing.active&&!p&&!targetDrop&&!targetNode&&!nearFire&&!activity&&!townActivity);
   $('actionKey').textContent=targetNode&&!['bush','ground'].includes(targetNode.kind)?'CLICK':'E';
   if(fishing.active){$('actionKey').textContent='E';$('portalText').textContent=fishing.ready?'Fish biting · reel in now':'Fishing · wait for a bite';}
   else if(targetDrop)$('portalText').textContent=`Pick up ${targetDrop.amount} ${targetDrop.resource}`;
-  else if(p)$('portalText').textContent=`Travel to ${LAYER_NAMES[portalDestination(p,layer)]} · ${p.name}`;
+  else if(p)$('portalText').textContent=BUILDING_PORTALS.includes(p)?`${layer==='surface'?'Enter':'Leave'} ${p.name}`:`Travel to ${LAYER_NAMES[portalDestination(p,layer)]} · ${p.name}`;
+  else if(activity)$('portalText').textContent=activity.id==='slots'?'Play slots · free play chips':'Play blackjack against the dealer';
+  else if(townActivity)$('portalText').textContent=({shop:'Trade resources · general shop',smith:'Upgrade tools · blacksmith',house:'Open supply chest · refills every 2 minutes'})[buildingForLayer(layer).type];
   else if(nearFire)$('portalText').textContent='Open campfire · cook meat or fish';
   else if(targetNode){const n=targetNode;$('portalText').textContent=n.kind==='bush'?'Forage Bush · sticks + leaves':n.kind==='ground'?`Pick up ${n.label}`:`${n.kind==='tree'?'Chop':'Mine'} ${n.label} · ${n.quantity}/${n.maxQuantity} · ${n.kind==='tree'?'axe':`${n.rarity?`${n.rarity} · `:''}${['obsidian','moonstone'].includes(n.resource)?'iron pickaxe':'pickaxe'}`} needed`;}
 }

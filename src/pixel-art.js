@@ -60,11 +60,12 @@ export class PixelArt {
     this.tiles=new Map();this.sprites=new Map();this.pending=new Set();
     if(worker&&typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined'){
       this.worker=new Worker(new URL('./terrain-worker.js',import.meta.url),{type:'module'});
-      this.worker.onmessage=({data})=>{this.pending.delete(data.key);this.cacheTile(data.key,data.bitmap);};
+      this.worker.onmessage=({data})=>{this.pending.delete(data.key);if(data.key==='surface-atlas')this.atlas=data.bitmap;else this.cacheTile(data.key,data.bitmap);};
       this.worker.onerror=()=>{this.worker.terminate();this.worker=null;this.pending.clear();};
     }
   }
   cacheTile(key,tile){this.tiles.set(key,tile);if(this.tiles.size>256){const oldest=this.tiles.keys().next().value;this.tiles.get(oldest)?.close?.();this.tiles.delete(oldest);}}
+  requestAtlas(){if(this.atlas||this.pending.has('surface-atlas'))return;if(this.worker){this.pending.add('surface-atlas');this.worker.postMessage({key:'surface-atlas',kind:'atlas'});}else this.atlas=this.makeAtlas();}
   terrain(ctx,bounds,layer){
     const size=512,missing=[];let generated=0;
     for(let gy=Math.floor(bounds.top/size);gy<=Math.floor(bounds.bottom/size);gy++)for(let gx=Math.floor(bounds.left/size);gx<=Math.floor(bounds.right/size);gx++){

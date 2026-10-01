@@ -1,7 +1,7 @@
-import { caveGeometry } from './world.js';
+import { caveGeometry,TOWNS } from './world.js';
 import { MATERIAL_COLORS } from './materials.js';
 import { PixelArt, grain } from './pixel-art.js';
-import { BIOMES, PATHS, RIVER, CAVE_ROOMS, DEEP_ROOMS, TUNNELS, DEEP_TUNNELS, distanceToSegment, lakeWaterDistance } from './world.js';
+import { BIOMES, SURFACE, PATHS, RIVER, CAVE_ROOMS, DEEP_ROOMS, TUNNELS, DEEP_TUNNELS, distanceToSegment, lakeWaterDistance, oceanDistance, biomeAt } from './world.js';
 import { BRIDGE_SPANS } from './bridges.js';
 
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
@@ -25,7 +25,7 @@ function canopy(c,x,y,w,h,p,seed){
   block(c,x+10,y+4,Math.round(w*.4),6,p[3]);block(c,x+7,y+h-11,w-17,5,p[0]);
   for(let i=0;i<4;i++){const bx=x+9+Math.floor(grain(i,seed)*Math.max(1,w-20)),by=y+11+Math.floor(grain(seed,i)*Math.max(1,h-25));block(c,bx,by,4,4,i%2?p[3]:p[1]);}
 }
-function smoothNoise(x,y,size){const fx=x/size,fy=y/size,ix=Math.floor(fx),iy=Math.floor(fy),u=fx-ix,v=fy-iy;return (grain(ix,iy)*(1-u)+grain(ix+1,iy)*u)*(1-v)+(grain(ix,iy+1)*(1-u)+grain(ix+1,iy+1)*u)*v;}
+function smoothNoise(x,y,size){const fx=x/size,fy=y/size,ix=Math.floor(fx),iy=Math.floor(fy),a=fx-ix,b=fy-iy,u=a*a*(3-2*a),v=b*b*(3-2*b);return (grain(ix,iy)*(1-u)+grain(ix+1,iy)*u)*(1-v)+(grain(ix,iy+1)*(1-u)+grain(ix+1,iy+1)*u)*v;}
 function sample(x,y,layer){
   if(layer!=='surface'){
     const {rooms,tunnels}=caveGeometry(layer);
@@ -36,25 +36,45 @@ function sample(x,y,layer){
   }
   const n=smoothNoise(x,y,340),detail=smoothNoise(x,y,150);
   let color=ground.heartlands;
-  for(const b of BIOMES){const rx=(x-b.center[0])/b.radii[0],ry=(y-b.center[1])/b.radii[1],w=clamp((1.045-Math.hypot(rx,ry))*7+(n-.5)*.7);if(w)color=mix(color,ground[b.id],w);}
-  color=mix(color,[169,211,106],detail*.12);
+  for(const b of BIOMES){const rx=(x-b.center[0])/b.radii[0],ry=(y-b.center[1])/b.radii[1],w=clamp((1.10-Math.hypot(rx,ry))*4.4+(n-.5)*.3);if(w)color=mix(color,ground[b.id],w);}
+  // World-space noise crosses tile edges continuously; texture is baked only once.
+  color=color.map(v=>v+(n-.5)*10+(detail-.5)*7);
+  color=mix(color,[169,211,106],clamp((detail-.48)*.3));
   const path=near(x,y,trails),stream=near(x,y,river),village=Math.hypot(x-9000,y-7000);
-  const dirt=clamp((62-path)/24),plaza=clamp((755-village)/70);color=mix(color,[236,199,122],Math.max(dirt,plaza));
-  const water=Math.min(stream-83,lakeWaterDistance(x,y)),bridge=false;
+  const edge=smoothNoise(x+1900,y-750,95);
+  const townPlaza=Math.max(...TOWNS.map(t=>clamp((370-Math.hypot(x-t.x,y-t.y)+(detail-.5)*52)/100)));
+  const dirt=clamp((65-path+(edge-.5)*22)/38),plaza=clamp((762-village+(detail-.5)*52)/95),soil=Math.max(dirt,plaza,townPlaza);
+  color=mix(color,[233+(detail-.5)*12,196+(detail-.5)*12,119+(detail-.5)*10],soil);
+  const coast=oceanDistance(x,y);
+  if(coast<240){const sand={tundra:[218,232,205],marsh:[198,202,143],badlands:[239,181,109],volcanic:[177,160,179],woodland:[224,207,141],heartlands:[239,211,147]}[biomeAt(x,y,'surface').id]||[239,211,147];color=mix(color,sand,clamp((240-coast)/130));}
+  const water=Math.min(stream-83,lakeWaterDistance(x,y),coast),bridge=false;
   if(water<30&&!bridge)color=mix(color,[71,196,207],clamp((30-water)/35));
   if(water<0&&!bridge)color=mix(color,[44,139,199],clamp(-water/75)*.78);
   if(bridge)color=[185,133,81];
-  return {color,water:water<0&&!bridge,dirt:Math.max(dirt,plaza)>.5,bridge};
+  return {color,water:water<0&&!bridge,dirt:soil>.5,soil,bridge};
 }
 
 export class ToyArt extends PixelArt {
+  makeAtlas(){
+    const tile=canvas(480,Math.round(480*SURFACE.height/SURFACE.width)),c=tile.getContext('2d');
+    for(let y=0;y<tile.height;y+=2)for(let x=0;x<tile.width;x+=2){const s=sample(x/tile.width*SURFACE.width,y/tile.height*SURFACE.height,'surface');block(c,x,y,2,2,rgb(s.color));}
+    return tile;
+  }
   makeTerrain(gx,gy,layer){
     const tile=canvas(256,256),c=tile.getContext('2d');
     for(let py=0;py<256;py+=4)for(let px=0;px<256;px+=4){
       const x=gx*512+px*2,y=gy*512+py*2,s=sample(x,y,layer),n=grain(x>>2,y>>2,7);
       block(c,px,py,4,4,rgb(s.color));
+      if(!s.water){
+        // Quiet flecks use the ground's own palette, instead of noisy contrasting dots.
+        const fleck=s.color.map(v=>v+(n>.5?9:-8));
+        if(n<.1||n>.88)block(c,px+1,py+2,n>.96?2:1,1,rgb(fleck));
+      }
       if(s.bridge){if(Math.floor(y/12)%2===0)block(c,px,py,4,1,'#8e654a');}
-      else if(layer==='surface'&&!s.dirt&&!s.water){if(n>.996)block(c,px+1,py,2,2,'#bce28a');else if(n<.014)block(c,px+1,py+1,2,2,'#3e9d68');}
+      else if(layer==='surface'&&!s.dirt&&!s.water){
+        if(n>.989){const tuft=s.color.map((v,i)=>v+[-18,-13,-9][i]);block(c,px+1,py,1,2,rgb(tuft));block(c,px+2,py+1,1,2,rgb(tuft));}
+        else if(n<.01)block(c,px+1,py+1,2,1,rgb(s.color.map(v=>v+17)));
+      }
       else if(!s.water&&n>.985)block(c,px+1,py+1,2,1,layer==='surface'?'#fff0bf':'#aaa6d8');
     }
     if(layer==='surface')this.paintBridges(c,gx,gy);

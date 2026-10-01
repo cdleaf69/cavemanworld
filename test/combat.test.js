@@ -28,11 +28,11 @@ test('cave enemies chase, damage, drop crafting bones, and armor absorbs hits',(
   const crawler=new Creature({id:'test-crawler',kind:'caveCrawler',x:4000,y:2700,layer:'cave'});
   let hit=null;
   for(let t=0;t<12000;t+=100){hit=crawler.update(.1,t,{x:4040,y:2700,layer:'cave'},()=>true);if(hit)break;}
-  assert.equal(hit.damage,10);
+  assert.equal(hit.damage,12);
   const inventory=new Inventory({level:20});inventory.add('leaves',3);inventory.craft('leaf-wrap');inventory.equip('leaf-wrap');
   const vitals=new PlayerVitals();assert.equal(vitals.takeDamage(hit.damage,inventory.equippedGear,1000).damage,9);
   assert.equal(vitals.takeDamage(hit.damage,inventory.equippedGear,1100).damage,0);
-  const result=crawler.hit(28,2000);assert.equal(result.dead,true);assert.equal(result.loot.bone,1);assert.equal(result.loot.shell,1);
+  const result=crawler.hit(crawler.maxHealth,2000);assert.equal(result.dead,true);assert.equal(result.loot.bone,1);assert.equal(result.loot.shell,1);
   inventory.add('bone',2);inventory.add('wood',2);assert.equal(inventory.craft('bone-club').ok,true);
   inventory.equip('bone-club');
   assert.equal(weaponDamage(inventory.equippedTool),10);
@@ -56,7 +56,7 @@ test('a player at a cave entrance is safe until they leave the portal area',()=>
   assert.equal(attacks,0);
   assert.ok(registry.creatures.filter(c=>c.id.startsWith('cave-0-')).every(c=>Math.hypot(c.x-850,c.y-1050)>=210));
   const hunter=new Creature({id:'test-entrance-hunter',kind:'caveBat',x:1100,y:1050,layer:'cave'});
-  assert.equal(hunter.update(.1,20000,{x:1150,y:1050,layer:'cave'},canWalk)?.damage,6);
+  assert.equal(hunter.update(.1,20000,{x:1150,y:1050,layer:'cave'},canWalk)?.damage,7);
 });
 
 test('cave mobs notice a distant player immediately after leaving an entrance',()=>{
@@ -71,7 +71,7 @@ test('cave mobs notice a distant player immediately after leaving an entrance',(
   const nearEntrance=new Creature({id:'aware-entrance',kind:'caveCrawler',x:1150,y:1050,layer:'cave'});
   const start=nearEntrance.x;
   nearEntrance.update(.1,1000,{x:850,y:1050,layer:'cave'},()=>true);
-  assert.ok(Math.abs(nearEntrance.x-start)<2);
+  assert.ok(Math.abs(nearEntrance.x-start)<=nearEntrance.speed*.028+.001);
   nearEntrance.update(.1,1100,{x:1010,y:1050,layer:'cave'},()=>true);
   assert.ok(nearEntrance.x<start);
 });
@@ -94,13 +94,13 @@ test('rock scorpions fire dodgeable projectiles that stop at cave walls',()=>{
   const scorpion=new Creature({id:'test-scorpion',kind:'rockScorpion',x:3950,y:2700,layer:'cave'});
   assert.ok(scorpion.speed>50);
   const shot=scorpion.update(.1,2000,{x:4200,y:2700,layer:'cave'},canWalk);
-  assert.equal(shot.projectile.damage,11);
+  assert.equal(shot.projectile.damage,13);
   const rock=new RockProjectile({...shot.projectile,sourceId:scorpion.id,createdAt:2000});
   assert.equal(rock.update(.3,2300,{x:4200,y:2950,layer:'cave'}),null);
   assert.equal(rock.active,true);
   let hit=null;
   for(let t=2400;t<=3200;t+=100){hit=rock.update(.1,t,{x:4200,y:2700,layer:'cave'});if(hit)break;}
-  assert.equal(hit?.damage,11);
+  assert.equal(hit?.damage,13);
   assert.equal(rock.active,false);
   const safeRock=new RockProjectile({x:1110,y:1050,angle:Math.PI,speed:280,damage:11,layer:'cave',sourceId:'test',createdAt:0});
   let safeHit=null;

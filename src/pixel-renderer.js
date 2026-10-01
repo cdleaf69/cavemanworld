@@ -3,8 +3,12 @@ import { WorldRenderer } from './renderer.js';
 import { grain } from './pixel-art.js';
 import { AdventureArt } from './adventure-art.js';
 import { CAMERA_TILT, worldToScreen } from './camera.js';
-import { BIOMES, SURFACE, CAVES, DEEP_CAVES, HUTS, PORTALS, DESCENTS, LANDMARKS, CAVE_ROOMS, DEEP_ROOMS, LAKES, distanceToSegment } from './world.js';
+import { BIOMES, SURFACE, CAVES, DEEP_CAVES, HUTS, PORTALS, DESCENTS, LANDMARKS, CAVE_ROOMS, DEEP_ROOMS, LAKES, lakeDistance, lakeOutline, oceanDistance, distanceToSegment } from './world.js';
 import { BRIDGE_SPANS, RIVER_SEGMENTS, riverDistance } from './bridges.js';
+import { drawCasinoBuilding,drawCasinoFloor,casinoObjects } from './casino-art.js';
+import { CASINO_BUILDING,CASINO_FIXTURES } from './world.js';
+import {buildingForLayer,TOWN_BUILDINGS,TOWNS,fixturesForBuilding} from './town-data.js';
+import {townObjects} from './town-art.js';
 
 const clampHealth=(health,max)=>Math.max(0,Math.min(1,health/Math.max(1,max)));
 
@@ -19,17 +23,20 @@ export class PixelWorldRenderer extends WorldRenderer {
     const ctx=this.ctx,d=this.dpr,b=this.viewBounds(camera,zoom);
     ctx.setTransform(d,0,0,d,0,0);ctx.imageSmoothingEnabled=false;ctx.fillStyle=layer==='surface'?'#60764a':'#202b2e';ctx.fillRect(0,0,this.width,this.height);
     ctx.save();ctx.translate(this.width/2,this.height/2);ctx.scale(zoom,zoom*CAMERA_TILT);ctx.translate(-camera.x,-camera.y);
-    this.art.terrain(ctx,b,layer);
+    const building=buildingForLayer(layer);
+    if(building)drawCasinoFloor(ctx,this.art,building);else this.art.terrain(ctx,b,layer);
     if(layer==='surface')this.drawWaterMotion(ctx,b,time);
     const visible=(x,y,pad=300)=>x>b.left-pad&&x<b.right+pad&&y>b.top-pad&&y<b.bottom+pad;
     const objects=[];
+    if(building)objects.push(...(building.type==='casino'?casinoObjects(ctx,this.art,time):townObjects(ctx,this.art,building,time)));
     const items=spawnables.visible({...b,top:b.top-180,bottom:b.bottom+220},layer);
     for(const decoration of items.decorations)this.art.decoration(ctx,decoration);
     for(const node of items.nodes)objects.push({y:node.y,draw:()=>this.art.resource(ctx,node,time,player)});
     if(layer==='surface'){
+      for(const building of TOWN_BUILDINGS)if(!building.hut&&visible(building.x,building.y))objects.push({y:building.y+60,draw:()=>drawCasinoBuilding(ctx,this.art,building)});
       HUTS.forEach((hut,index)=>{if(visible(hut.x,hut.y))objects.push({y:hut.y,draw:()=>this.art.hut(ctx,hut,index)});});
       if(visible(9000,6850))objects.push({y:6850,draw:()=>this.art.fire(ctx,9000,6850,time)});
-      for(const landmark of LANDMARKS.filter(l=>l.layer==='surface'&&l.type!=='village'&&visible(l.x,l.y,500)))objects.push({y:landmark.y,draw:()=>this.landmark(ctx,landmark,time)});
+      for(const landmark of LANDMARKS.filter(l=>l.layer==='surface'&&!['village','casino'].includes(l.type)&&visible(l.x,l.y,500)))objects.push({y:landmark.y,draw:()=>this.landmark(ctx,landmark,time)});
     }
     for(const portal of [...PORTALS,...DESCENTS]){const p=portal[layer];if(p&&visible(p.x,p.y))objects.push({y:p.y,draw:()=>this.portal(ctx,p,portal,layer)});}
     for(const fire of structures.visible(b,layer))objects.push({y:fire.y,draw:()=>this.art.fire(ctx,fire.x,fire.y,time,fire.fuel>0)});
@@ -39,7 +46,7 @@ export class PixelWorldRenderer extends WorldRenderer {
     objects.sort((a,b)=>a.y-b.y);for(const object of objects)object.draw();
     if(layer==='surface'&&fishing?.active){
       const {x,y}=fishing.castPoint;
-      const tip=this.art.fishingRodTip(player,fishing);
+      const tip=this.art.fishingRodTip(player,fishing,time);
       ctx.strokeStyle='#fff2cf';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(x,y);ctx.stroke();
       ctx.fillStyle='#e7efec';ctx.fillRect(x-5,y-5,10,6);ctx.fillStyle=fishing.ready?'#c6d9b2':'#87969b';ctx.fillRect(x-5,y+1,10,7);
       if(fishing.ready){ctx.strokeStyle='#fff0ad';ctx.lineWidth=3;const ripple=14+Math.sin(time*.012)*5;ctx.beginPath();ctx.ellipse(x,y+3,ripple,ripple*.5,0,0,Math.PI*2);ctx.stroke();}
@@ -60,7 +67,7 @@ export class PixelWorldRenderer extends WorldRenderer {
     for(let gy=Math.floor(b.top/step)-1;gy<=Math.ceil(b.bottom/step);gy++)for(let gx=Math.floor(b.left/step)-1;gx<=Math.ceil(b.right/step);gx++){
       if(grain(gx,gy,31)<.42)continue;
       const x=gx*step+Math.floor(grain(gx,gy,45)*20),y=gy*step+Math.floor(grain(gx,gy,47)*17);
-      if(riverDistance(x,y,flowing)>71&&!lakes.some(l=>((x-l.x)/l.rx)**2+((y-l.y)/l.ry)**2<.83))continue;
+      if(oceanDistance(x,y)>-12&&riverDistance(x,y,flowing)>71&&!lakes.some(l=>lakeDistance(l,x,y)<-12))continue;
       if(bridges.some(s=>distanceToSegment(x,y,s.x,s.y,s.x+Math.cos(s.angle)*s.length,s.y+Math.sin(s.angle)*s.length)<59))continue;
       const length=grain(gx,gy,57)>.76?8:4;
       const frame=(animationFrame+Math.floor(grain(gx,gy,61)*4))%4;
@@ -90,7 +97,11 @@ export class PixelWorldRenderer extends WorldRenderer {
     ctx.restore();
   }
   drawOverview(canvas,layer,player,zones=null,showZones=false){
-    if(!EXTRA_CAVES[layer])return super.drawOverview(canvas,layer,player,zones,showZones);
+    const building=buildingForLayer(layer);
+    if(building){
+      const c=canvas.getContext('2d'),s=Math.min(canvas.width/1100,canvas.height/850);c.setTransform(1,0,0,1,0,0);c.fillStyle='#2e4140';c.fillRect(0,0,canvas.width,canvas.height);c.save();c.scale(s,s);c.fillStyle='#b19468';c.fillRect(60,60,980,750);c.fillStyle='#4d7b60';for(const f of building.type==='casino'?CASINO_FIXTURES:fixturesForBuilding(building))c.fillRect(f.x-f.width/2,f.y-f.height/2,f.width,f.height);c.fillStyle='#f4d798';c.fillRect(510,746,80,40);c.beginPath();c.arc(player.x,player.y,5/s,0,Math.PI*2);c.fill();c.restore();return;
+    }
+    if(!EXTRA_CAVES[layer]){super.drawOverview(canvas,layer,player,zones,showZones);if(layer==='surface'&&canvas.width>500){const c=canvas.getContext('2d'),s=Math.min(canvas.width/SURFACE.width,canvas.height/SURFACE.height),ox=(canvas.width-SURFACE.width*s)/2,oy=(canvas.height-SURFACE.height*s)/2;c.font='bold 12px monospace';c.textAlign='center';c.fillStyle='#fff0bc';for(const t of TOWNS){const x=ox+t.x*s,y=oy+t.y*s;c.fillRect(x-3,y-3,6,6);c.fillText(t.name.toUpperCase(),x+(t.id==='hearth'?65:0),y+18);}}return;}
     const c=canvas.getContext('2d'),world=LAYERS[layer],{rooms,tunnels}=caveGeometry(layer),scale=Math.min(canvas.width/world.width,canvas.height/world.height);
     c.setTransform(1,0,0,1,0,0);c.fillStyle='#252d48';c.fillRect(0,0,canvas.width,canvas.height);c.save();c.scale(scale,scale);c.strokeStyle='#9583b5';c.fillStyle='#baabc5';
     for(const t of tunnels){c.lineWidth=t.width;c.beginPath();t.points.forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));c.stroke();}
@@ -100,11 +111,12 @@ export class PixelWorldRenderer extends WorldRenderer {
   }
   drawSurface(ctx,b,zoom,overview=false){
     if(!overview){this.art.terrain(ctx,b,'surface');return;}
-    ctx.fillStyle='#788c5b';ctx.fillRect(0,0,SURFACE.width,SURFACE.height);
-    const palette={woodland:'#39b473',tundra:'#a9decf',marsh:'#5fbd9c',badlands:'#e9a766',volcanic:'#867f9e'};
-    for(const biome of BIOMES){ctx.beginPath();biome.polygon.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=palette[biome.id];ctx.fill();}
-    this.drawRiver(ctx);for(const lake of LAKES){ctx.fillStyle='#2c8bc7';ctx.beginPath();ctx.ellipse(lake.x,lake.y,lake.rx,lake.ry,0,0,Math.PI*2);ctx.fill();}this.drawPaths(ctx,true);
+    this.art.requestAtlas();ctx.fillStyle='#88cf67';ctx.fillRect(0,0,SURFACE.width,SURFACE.height);
+    if(this.art.atlas){ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(this.art.atlas,0,0,SURFACE.width,SURFACE.height);ctx.restore();}
+    this.drawRiver(ctx);for(const lake of LAKES){ctx.fillStyle='#2c8bc7';ctx.beginPath();lakeOutline(lake).forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fill();}this.drawPaths(ctx,true);
     ctx.fillStyle='#cbb88c';ctx.beginPath();ctx.arc(9000,7000,600,0,Math.PI*2);ctx.fill();this.drawPortals(ctx,'surface',b,true);
+    ctx.fillStyle='#f6d075';ctx.fillRect(CASINO_BUILDING.x-140,CASINO_BUILDING.y-140,280,280);
+    for(const town of TOWNS){ctx.fillStyle='#f4d996';ctx.fillRect(town.x-170,town.y-170,340,340);}
   }
   portal(ctx,p,portal,layer){
     const sprite=this.art.sprite(`portal:${!!portal.deep}:${layer}`,()=>{

@@ -2,19 +2,19 @@ import { MATERIALS } from './materials.js';
 // Every armor has one identity perk. Matching equipment uses the same baseline
 // within a cave depth; biome materials choose which multiplier they improve.
 export const ARMOR_PERKS=Object.freeze({
-  'leaf-wrap':{biome:'Heartlands',stat:'health',base:1.08,tools:['hand-rock','stone-axe','stone-pickaxe']},
-  'wood-vest':{biome:'Elderwood',stat:'speed',base:1.08,tools:['wood-club','stone-axe','stone-pickaxe']},
-  'hide-wrap':{biome:'Woodland',stat:'power',base:1.10,tools:['bone-club','stone-axe','stone-pickaxe']},
-  'stone-hide':{biome:'Heartlands',stat:'defense',base:1.12,tools:['stone-axe','stone-pickaxe','stone-club']},
-  'iron-armor':{biome:'Upper Caves',stat:'defense',base:1.15,tools:['iron-axe','iron-pickaxe','iron-club']},
-  'wing-cloak':{biome:'Upper Caves',stat:'speed',base:1.14,tools:['bone-club','stone-axe','stone-pickaxe']},
-  'shell-armor':{biome:'Upper Caves',stat:'health',base:1.15,tools:['iron-axe','iron-pickaxe','iron-club']},
-  'copper-armor':{biome:'Redstone Reach',stat:'power',base:1.15,tools:['copper-axe','copper-pickaxe','copper-club']},
+  'leaf-wrap':{biome:'Heartlands',stat:'health',base:1.18,tools:['hand-rock','stone-axe','stone-pickaxe']},
+  'wood-vest':{biome:'Elderwood',stat:'speed',base:1.18,tools:['wood-club','stone-axe','stone-pickaxe']},
+  'hide-wrap':{biome:'Woodland',stat:'power',base:1.20,tools:['bone-club','stone-axe','stone-pickaxe']},
+  'stone-hide':{biome:'Heartlands',stat:'defense',base:1.22,tools:['stone-axe','stone-pickaxe','stone-club']},
+  'iron-armor':{biome:'Upper Caves',stat:'defense',base:1.25,tools:['iron-axe','iron-pickaxe','iron-club']},
+  'wing-cloak':{biome:'Upper Caves',stat:'speed',base:1.24,tools:['bone-club','stone-axe','stone-pickaxe']},
+  'shell-armor':{biome:'Upper Caves',stat:'health',base:1.25,tools:['iron-axe','iron-pickaxe','iron-club']},
+  'copper-armor':{biome:'Redstone Reach',stat:'power',base:1.25,tools:['copper-axe','copper-pickaxe','copper-club']},
   'quartz-armor':{biome:'Frostfall',stat:'health',base:1.18,tools:['quartz-axe','quartz-pickaxe','quartz-club']},
-  'amber-wrap':{biome:'Mirefen',stat:'speed',base:1.15,tools:['amber-axe','amber-pickaxe','amber-club']},
+  'amber-wrap':{biome:'Mirefen',stat:'speed',base:1.25,tools:['amber-axe','amber-pickaxe','amber-club']},
   'obsidian-armor':{biome:'Ashen Crown',stat:'power',base:1.22,tools:['obsidian-axe','obsidian-pickaxe','obsidian-club']},
   'moonstone-armor':{biome:'Moon Vault',stat:'defense',base:1.22,tools:['moonstone-axe','moonstone-pickaxe','moonstone-club']},
-  ...Object.fromEntries(MATERIALS.map(m=>[m.id==='amber'?'amber-wrap':`${m.id}-armor`,{biome:m.biome,stat:m.stat,base:m.id==='quartz'?1.18:m.bonus,tools:['axe','pickaxe','club'].map(t=>`${m.id}-${t}`)}])),
+  ...Object.fromEntries(MATERIALS.map(m=>[m.id==='amber'?'amber-wrap':`${m.id}-armor`,{biome:m.biome,stat:m.stat,base:m.bonus,tools:['axe','pickaxe','club'].map(t=>`${m.id}-${t}`)}])),
 });
 
 export function armorEffects(inventory){
@@ -25,7 +25,8 @@ export function armorEffects(inventory){
   const fullSet=crafted===perk.tools.length;
   const matchingTool=perk.tools.includes(inventory.equippedTool?.id);
   const boosted=fullSet&&matchingTool;
-  stats[perk.stat]=1+(perk.base-1)*(boosted?1.5:1);
+  stats.health=1.12;
+  stats[perk.stat]*=1+(Math.max(perk.base,1.18)-1)*(boosted?1.5:1);
   return {stats,perk,crafted,total:perk.tools.length,fullSet,matchingTool,boosted};
 }
 

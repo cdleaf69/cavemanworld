@@ -4,6 +4,7 @@ import { MATERIAL_COLORS } from './materials.js';
 import { RECIPES } from './crafting.js';
 import { itemSvg } from './item-art.js';
 import { CAMERA_TILT } from './camera.js';
+import { playerArmPose, heldToolPose, fishingRodTipWorld } from './player-animation.js';
 const toolRecipes=new Map(RECIPES.filter(recipe=>recipe.category==='tool').map(recipe=>[recipe.id,recipe]));
 const rect=(c,x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(Math.round(x),Math.round(y),w,h);};
 function canvas(w,h){if(typeof document==='undefined')return new OffscreenCanvas(w,h);const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
@@ -54,15 +55,35 @@ export class AdventureArt extends ToyArt {
       for(let i=0;i<18;i++){const a=grain(i,seed)*Math.PI*2,r=grain(seed,i)*.82,px=x+Math.cos(a)*rx*r,py=y+Math.sin(a)*ry*r;rect(c,px,py,4,2,i%4===0?p[3]:p[2]);}
     };
     if(tree){
-      rect(c,49,71,14,66,'#674b3e');rect(c,51,78,5,54,variant%4===2?'#e4d7b1':'#a57a51');rect(c,45,133,24,5,'#73513e');
-      for(let i=0;i<7;i++)rect(c,52+(i%2)*5,87+i*6,3,3,'#513f36');
-      rect(c,39,90,15,6,'#79563e');rect(c,35,75,6,21,'#79563e');rect(c,61,85,15,6,'#79563e');
-      if(variant%4===0){for(let i=0;i<5;i++){const y=12+i*18,w=16+i*6;for(let j=0;j<36;j+=2)rect(c,56-w*j/36,y+j,2*w*j/36,2,p[1+(i%2)]);for(let k=0;k<12;k++)rect(c,56+(grain(k,i+variant)-.5)*w*1.4,y+19+grain(i,k)*14,4,2,p[2]);}}
-      else if(variant%4===1){crown(28,62,25,18,variant);crown(80,61,26,19,variant+3);crown(54,49,38,24,variant+7);}
-      else if(variant%4===2){crown(55,62,23,35,variant);crown(53,29,19,25,variant+4);crown(66,77,19,19,variant+9);}
-      else{crown(30,64,24,22,variant);crown(78,59,26,25,variant+3);crown(54,37,34,29,variant+7);crown(52,69,28,19,variant+9);}
-      if(biome==='marsh')for(let i=0;i<6;i++){rect(c,22+i*13,75,2,22+(i%3)*8,p[1]);rect(c,21+i*13,86,4,5,p[2]);}
-      if(variant%4===1)for(let i=0;i<5;i++)rect(c,26+i*12,51+(i%2)*19,4,4,'#ef9a8c');
+      const form=variant%4,bark=biome==='tundra'?['#687663','#b5b394','#d2d0ab']:['#71513a','#a67a48','#c89c5e'];
+      // A clear trunk and restrained foliage leave open air between trees.
+      rect(c,53,43,8,91,bark[0]);rect(c,54,48,3,84,bark[1]);rect(c,54,53,1,70,bark[2]);
+      rect(c,52,111,9,23,bark[0]);rect(c,53,111,3,23,bark[1]);
+      for(let i=0;i<6;i++){const y=62+i*11;rect(c,58,y,2,3,bark[0]);if(i%2===0)rect(c,54,y+6,2,2,bark[2]);}
+      // Short upward branches and stepped roots, rather than a rectangular base.
+      rect(c,46,82,8,3,bark[0]);rect(c,44,76,3,8,bark[0]);rect(c,44,76,1,5,bark[1]);
+      rect(c,60,99,8,3,bark[0]);rect(c,66,92,3,9,bark[0]);rect(c,67,93,1,6,bark[1]);
+      rect(c,51,130,12,5,bark[0]);rect(c,48,134,6,3,bark[0]);rect(c,61,133,5,3,bark[0]);rect(c,46,136,6,2,bark[0]);rect(c,65,136,3,2,bark[0]);rect(c,52,131,3,4,bark[1]);
+      const leaves=(x,y,rx,ry,seed)=>{
+        // Small overlapping leaf masses form a single uneven crown, with quiet dappled shading.
+        for(const [dx,dy,sx,sy] of [[-rx*.52,3,.56,.65],[rx*.48,1,.58,.68],[0,-ry*.36,.75,.72],[0,ry*.25,.7,.62]])ellipse(c,x+dx,y+dy,Math.round(rx*sx),Math.round(ry*sy),p[0]);
+        ellipse(c,x-1,y-2,rx-3,ry-3,p[1]);ellipse(c,x-4,y-5,rx-7,ry-7,p[2]);
+        for(let i=0;i<38;i++){
+          const px=Math.round(x+(grain(i,seed,17)-.5)*rx*1.65),py=Math.round(y+(grain(seed,i,19)-.5)*ry*1.6);
+          if(((px-x)/rx)**2+((py-y)/ry)**2>.78)continue;
+          rect(c,px,py,2+(i%2),1+(i%3===0?1:0),i%7===0?p[3]:i%3===0?p[0]:p[1]);
+        }
+      };
+      if(form===0){
+        // Open, compact pine boughs above a visible lower trunk.
+        for(let i=4;i>=0;i--){const y=16+i*13,w=9+i*4;for(let row=0;row<23;row+=2){const half=Math.round(w*row/23);rect(c,56-half,y+row,half*2,2,row>17?p[0]:p[1]);}for(let j=0;j<6;j++)rect(c,48+j*3,y+16+(j%2)*2,3,1,p[2]);}
+      }else{
+        const rx=form===1?29:form===2?23:27,ry=form===1?23:form===2?28:25;
+        leaves(56,35,rx,ry,variant+7);
+        if(form===2)leaves(45,82,7,7,variant+17);
+        else if(form===3)leaves(68,91,7,6,variant+19);
+        if(biome==='marsh')for(let i=0;i<4;i++){const x=37+i*12;rect(c,x,52,1,11+(i%2)*7,p[1]);rect(c,x-1,60,2,3,p[2]);}
+      }
     }else{
       const form=variant%4;
       if(form===0){crown(18,43,16,10,variant);crown(41,42,19,12,variant+3);}
@@ -114,45 +135,140 @@ export class AdventureArt extends ToyArt {
       const image=canvas(150,145),c=image.getContext('2d');
       rect(c,24,77,102,45,'#98714e');rect(c,28,84,94,34,'#ceab72');
       for(let i=0;i<7;i++){rect(c,28+i*14,83,4,35,'#825e43');rect(c,30+i*14,86,2,29,'#b58c5b');}
-      for(let y=15;y<91;y+=3){const w=Math.floor((y-10)*.83);rect(c,75-w,y,w*2,3,y%2?'#bf9657':'#d6b06b');}
+      const roofColors=[['#bf9657','#d6b06b'],['#918166','#c4b08c'],['#a7794a','#caa768']][index%3];
+      for(let y=index%3===1?35:15;y<91;y+=3){const w=index%3===1?Math.floor(42+(y-35)*.35):Math.floor((y-10)*(index%3===2?.77:.83));rect(c,75-w,y,w*2,3,roofColors[y%2]);}
+      if(index%3===1){rect(c,105,22,10,25,'#7c8c8e');rect(c,103,21,14,4,'#b6c1af');}
+      if(index%3!==0){rect(c,34,96,14,16,'#507366');rect(c,36,98,10,11,'#eed093');rect(c,40,98,2,11,'#967449');rect(c,96,96,14,16,'#507366');rect(c,98,98,10,11,'#eed093');}
+
       rect(c,13,88,124,7,'#7f6043');rect(c,57,93,36,29,'#70513b');rect(c,63,95,24,27,'#304b46');rect(c,67,94,4,28,'#b59b6a');rect(c,58,120,34,4,'#d6bb83');
       return {image,ax:75,ay:122};
     });this.shadow(ctx,h.x,h.y,h.r*.7);this.draw(ctx,sprite,h.x,h.y,1.85);
   }
   player(ctx,p,inventory,time,fishing){
-    const back=Math.sin(p.facing)<-.45,side=Math.abs(Math.cos(p.facing))>.7,step=p.moving?Math.floor(time/170)%2:0,armor=inventory.equippedGear?.tier,tool=inventory.equippedTool;
+    if(p.swimming){this.drawSwimmer(ctx,p,inventory,time);return;}
+    const back=Math.sin(p.facing)<-.45,side=Math.abs(Math.cos(p.facing))>.7,step=p.moving?[0,1,0,-1][Math.floor(time/145)%4]:0,armor=inventory.equippedGear?.tier,tool=inventory.equippedTool;
+    const pose=playerArmPose(p,time,tool?.type,fishing);
     const sprite=this.sprite(`adventurer:${back}:${side}:${step}:${armor}`,()=>{
-      const image=canvas(44,66),c=image.getContext('2d'),skin='#e4ad80',shirt=MATERIAL_COLORS[armor]||({leaf:'#71ae65',wood:'#b78858',iron:'#9bbec9',stone:'#9caeb0',copper:'#d7966b',quartz:'#a8d9dc',amber:'#ddb865',obsidian:'#9a81b6',moonstone:'#cbb3e0'}[armor])||'#c9845b';
-      rect(c,12,43,7,15+step*2,'#635b64');rect(c,24,43,7,17-step*2,'#635b64');rect(c,10,57+step*2,11,4,'#394652');rect(c,23,59-step*2,11,4,'#394652');
-      rect(c,8,28,6,22,skin);rect(c,31,28,6,22,skin);rect(c,13,26,18,23,shirt);rect(c,14,28,4,16,'#ffffff22');rect(c,13,45,18,4,'#765849');
-      rect(c,13,9,19,17,skin);rect(c,10,10,4,12,'#564438');rect(c,12,5,19,7,'#564438');rect(c,15,3,12,3,'#73503c');rect(c,30,8,4,9,'#564438');
-      if(back)rect(c,13,9,19,4,'#564438');
-      const eyeY=back?13:14,pupilY=back?eyeY:eyeY+2,pupilShift=side?3:1;
-      for(const eyeX of [15,24]){rect(c,eyeX,eyeY,7,6,'#fff0cf');rect(c,eyeX+pupilShift,pupilY,2,3,'#263b49');}
-      rect(c,20,23,7,2,'#a26c50');
+      const image=canvas(44,66),c=image.getContext('2d'),skin='#e4ad80',skinLight='#f2c495',skinShade='#c68c65',shirt=MATERIAL_COLORS[armor]||({leaf:'#71ae65',wood:'#b78858',iron:'#9bbec9',stone:'#9caeb0',copper:'#d7966b',quartz:'#a8d9dc',amber:'#ddb865',obsidian:'#9a81b6',moonstone:'#cbb3e0'}[armor])||'#bd8056';
+      // Small stepped contours and broad color planes keep the figure readable at game zoom.
+      for(const [x,stride] of [[side?16:14,step],[25,-step]]){
+        rect(c,x,45,6,11,'#626566');rect(c,x+1,49,3,7,'#7c7f76');
+        rect(c,x+1,55+stride,5,4,'#545d61');
+        rect(c,x-1,58+stride,9,3,'#354951');rect(c,x-2,60+stride,10,1,'#2e4148');
+        rect(c,x,58+stride,5,1,'#80918b');
+      }
+      rect(c,18,23,9,6,skinShade);rect(c,19,24,6,4,skin);
+      const bodyX=side?14:13,bodyW=side?17:18;
+      rect(c,bodyX+2,27,bodyW-4,3,shirt);rect(c,bodyX,30,bodyW,7,shirt);rect(c,bodyX+1,37,bodyW-2,8,shirt);rect(c,bodyX,43,bodyW,4,shirt);
+      rect(c,bodyX+1,31,3,11,'#ffffff19');rect(c,bodyX+bodyW-3,32,2,11,'#243e3926');
+      if(side){
+        // The shaded flank and curved front edge suggest a slight turn, not a flat front view.
+        rect(c,14,31,5,13,'#263d393b');rect(c,18,32,1,11,'#e7bc8038');
+        rect(c,15,44,4,3,'#263d393b');rect(c,19,28,9,2,'#ffffff12');
+      }
+      rect(c,18,28,9,2,'#805b43');rect(c,20,29,5,1,'#dfb383');
+      if(armor){
+        rect(c,bodyX-1,29,5,4,shirt);rect(c,bodyX+bodyW-3,29,5,4,shirt);
+        rect(c,side?20:17,33,side?7:10,9,'#ffffff20');rect(c,side?21:18,33,side?5:8,1,'#ffffff40');
+        rect(c,side?24:21,34,2,8,'#30443d22');
+      }else{
+        // A hide tunic, rather than a flat square shirt.
+        for(let i=0;i<13;i++)rect(c,bodyX+(side?6:2)+Math.floor(i*(side?.4:.6)),29+i,2,2,'#e7bc80');
+        rect(c,bodyX+3,42,3,3,'#d69b65');rect(c,bodyX+bodyW-6,43,4,2,'#9b684c');
+      }
+      rect(c,bodyX+1,46,bodyW-2,3,'#795c47');rect(c,bodyX+1,46,bodyW-2,1,'#a48156');rect(c,side?25:22,46,3,3,'#e0bd76');
+      // Cheeks, ears and a tapered jaw soften the old rectangular head.
+      rect(c,15,9,15,3,skin);rect(c,13,12,19,9,skin);rect(c,14,21,17,3,skin);rect(c,17,24,11,2,skinShade);
+      rect(c,11,16,3,4,skinShade);rect(c,12,16,2,3,skin);rect(c,31,16,3,4,skinShade);
+      rect(c,14,12,3,9,skinLight);rect(c,29,13,2,10,skinShade);
+      rect(c,12,8,3,8,'#634b39');rect(c,14,5,16,6,'#634b39');rect(c,17,3,11,3,'#785638');
+      rect(c,11,10,3,6,'#634b39');rect(c,29,8,4,7,'#634b39');rect(c,31,13,2,4,'#634b39');
+      rect(c,15,6,9,2,'#a27849');rect(c,16,9,4,3,'#634b39');rect(c,25,9,5,2,'#634b39');
+      if(back){
+        // Walking away shows the back of the head and the nape, rather than eyes.
+        rect(c,13,10,19,12,'#634b39');rect(c,14,21,17,2,'#634b39');rect(c,17,23,11,2,'#785638');
+        rect(c,15,11,3,8,'#785638');rect(c,16,11,1,5,'#986d43');
+      }
+      const eyeY=back?14:15,pupilY=back?eyeY:eyeY+1,pupilShift=side?3:2;
+      if(!back){
+        for(const eyeX of [15,24]){rect(c,eyeX,eyeY-2,6,1,'#805b43');rect(c,eyeX,eyeY,6,5,'#fff1d5');rect(c,eyeX+pupilShift,pupilY,2,3,'#354950');}
+        rect(c,22,20,2,2,skinShade);rect(c,21,20,1,1,skinLight);
+        rect(c,19,23,7,1,'#9d684b');rect(c,20,24,5,1,'#f0bb8d');
+      }
       return {image,ax:22,ay:61};
-    });this.shadow(ctx,p.x,p.y,23);this.draw(ctx,sprite,p.x,p.y-(p.jumpHeight||0),1.65,1,Math.cos(p.facing)<-.7);
-    if(tool){
+    });if(!p.swimBody)this.shadow(ctx,p.x,p.y,23);if(back&&tool)this.drawHeldTool(ctx,p,tool,time,fishing,pose);this.draw(ctx,sprite,p.x,p.y-(p.jumpHeight||0),1.65,1,Math.cos(p.facing)<-.7);
+    if(!p.swimBody){
+    const armKey=pose.arms.flatMap(arm=>[arm.shoulder.x,arm.elbow.x,arm.elbow.y,arm.hand.x,arm.hand.y,arm.far?1:0].map(Math.round)).join(':');
+    const armSprite=this.sprite(`arms:${armKey}`,()=>{
+      const image=canvas(52,66),c=image.getContext('2d');
+      for(const arm of pose.arms)this.drawArm(c,arm);
+      return {image,ax:22,ay:61};
+    });
+    this.draw(ctx,armSprite,p.x,p.y-(p.jumpHeight||0),1.65,1,pose.flip);
+    }
+    if(tool&&!back)this.drawHeldTool(ctx,p,tool,time,fishing,pose);
+  }
+  drawSwimmer(ctx,p,inventory,time){
+    // Keep the normal upright head and torso. Only the joints, kicks, and waterline animate.
+    const phase=p.moving?Math.floor(time/110)%8:Math.floor(time/240)%8;
+    const side=Math.abs(Math.cos(p.facing))>.7,back=Math.sin(p.facing)<-.45,flip=Math.cos(p.facing)<-.7;
+    const bob=[0,0,1,1,0,0,-1,-1][phase],bodyY=p.y+28+bob,waterline=p.y-6;
+    const kicks=this.sprite(`swim-kicks:${phase}`,()=>{
+      const image=canvas(44,66),c=image.getContext('2d');
+      for(let i=0;i<2;i++){
+        const kick=[0,1,2,1,0,-1,-2,-1][(phase+i*4)%8],x=i?26:16;
+        rect(c,x,46,6,8,'#58767c');rect(c,x+kick,54,6,5,'#58767c');rect(c,x+kick-1,59,8,2,'#6d969e');
+      }
+      return {image,ax:22,ay:61};
+    });this.draw(ctx,kicks,p.x,bodyY,1.65,.3,flip);
+    ctx.save();ctx.beginPath();ctx.rect(p.x-90,p.y-200,180,194);ctx.clip();
+    this.player(ctx,{...p,y:bodyY,swimming:false,swimBody:true,moving:false,jumpHeight:0,swingUntil:0},{...inventory,equippedTool:null},time);
+    ctx.restore();
+    const arms=this.sprite(`swim-arms:${phase}:${side}:${back}`,()=>{
+      const image=canvas(52,66),c=image.getContext('2d');
+      for(let i=0;i<2;i++){
+        const stroke=(phase+i*4)%8,reach=[-1,-3,-5,-3,0,2,3,1][stroke];
+        const x=(side?[15,29]:[11.5,32.5])[i],sign=i?1:-1;
+        const elbow={x:x+sign*(side?2:4),y:35+reach*.4};
+        const hand={x:elbow.x+sign*(side?3:4),y:39+reach};
+        this.drawArm(c,{shoulder:{x,y:31},elbow,hand,far:side&&i===0});
+      }
+      return {image,ax:22,ay:61};
+    });
+    ctx.save();ctx.beginPath();ctx.rect(p.x-90,p.y-200,180,194);ctx.clip();this.draw(ctx,arms,p.x,bodyY,1.65,1,flip);ctx.restore();
+    // Small stationary ripple masks break around the moving shoulders, not a rotating body.
+    ctx.save();ctx.fillStyle='#a6e4e7';ctx.globalAlpha=.7;
+    rect(ctx,p.x-25,waterline,14,2);rect(ctx,p.x+10,waterline+2,14,2);
+    if(p.moving){const offset=[0,2,4,2,0,-2,-4,-2][phase];rect(ctx,p.x-32-offset,waterline+8,8,2);rect(ctx,p.x+25+offset,waterline+7,8,2);}
+    ctx.restore();
+  }
+  drawHeldTool(ctx,p,tool,time,fishing,pose){
       const recipe=toolRecipes.get(tool.id);
       if(!recipe)return;
       this.heldImages??=new Map();
       let image=this.heldImages.get(recipe.id);
       if(!image){image=new Image();image.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(itemSvg(recipe,{background:false}))}`;this.heldImages.set(recipe.id,image);}
       if(!image.complete||!image.naturalWidth)return;
-      const flip=this.heldItemFlip(p,recipe.type,fishing),scale=1.65,handX=34,handY=43,heldSize=recipe.type==='rock'?31:43;
-      ctx.save();ctx.translate(p.x,p.y-(p.jumpHeight||0));ctx.scale(flip?-scale:scale,scale/CAMERA_TILT);ctx.translate(handX-22,handY-61);
-      if(p.swingUntil>time)ctx.rotate(-.55);
+      const held=heldToolPose(p,time,recipe.type,fishing,pose);
+      ctx.save();ctx.translate(p.x,p.y-(p.jumpHeight||0));ctx.scale(held.flip?-held.scale:held.scale,held.scale/CAMERA_TILT);ctx.translate(held.x,held.y);ctx.rotate(held.angle);
       ctx.imageSmoothingEnabled=false;
-      ctx.drawImage(image,-heldSize*.37,-heldSize*.81,heldSize,heldSize);
-      rect(ctx,-2,-1,5,4,'#e4ad80');
+      ctx.drawImage(image,-held.size*held.grip.x,-held.size*held.grip.y,held.size,held.size);
+      rect(ctx,-2,-1,4,3,'#e4ad80');rect(ctx,-1,-1,2,1,'#f2c495');
       ctx.restore();
+  }
+  drawArm(ctx,{shoulder,elbow,hand,far=false}){
+    const skin=far?'#ce986f':'#e4ad80',light=far?'#e0ae80':'#f2c495';
+    for(const [segment,[a,b]] of [[shoulder,elbow],[elbow,hand]].entries()){
+      const rows=Math.max(1,Math.ceil(Math.abs(b.y-a.y)));
+      for(let i=0;i<=rows;i++){
+        const t=i/rows,x=Math.round(a.x+(b.x-a.x)*t),y=Math.round(a.y+(b.y-a.y)*t);
+        const width=far?4:segment===0?6:5;
+        rect(ctx,x-Math.ceil(width/2),y,width,1,'#805f48');rect(ctx,x-2,y,far?3:4,1,skin);rect(ctx,x-2,y,1,1,light);
+      }
     }
+    // A small elbow shadow and forearm highlight distinguish the two segments.
+    rect(ctx,elbow.x,elbow.y,2,2,far?'#b37d59':'#c68c65');
+    rect(ctx,hand.x-2,hand.y-1,4,3,skin);rect(ctx,hand.x-1,hand.y-1,2,1,light);
   }
-  heldItemFlip(p,type,fishing){return type==='rod'&&fishing?.active?fishing.castPoint.x<p.x:Math.cos(p.facing)<-.7;}
-  fishingRodTip(p,fishing){
-    const size=43,scale=1.65,flip=this.heldItemFlip(p,'rod',fishing);
-    const x=34-22-size*.37+size*59/96;
-    const y=43-61-size*.81+size*13/96;
-    return {x:p.x+(flip?-scale:scale)*x,y:p.y-(p.jumpHeight||0)+scale/CAMERA_TILT*y};
-  }
+  fishingRodTip(p,fishing,time=0){return fishingRodTipWorld(p,time,fishing);}
 }

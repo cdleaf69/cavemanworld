@@ -5,6 +5,7 @@ export class FishingSession {
   get active(){return !!this.castPoint;}
   get ready(){return this.active&&this.lastUpdate>=this.biteAt;}
   cast(player,tool,point,now){
+    if(player.swimming)return {ok:false,message:'Stand on the shore to fish.'};
     if(player.layer!=='surface'||tool?.type!=='rod')return {ok:false,message:'Equip a fishing rod to cast into a lake.'};
     const lake=lakeAt(point.x,point.y);
     if(!lake)return {ok:false,message:'Aim at lake water to cast.'};

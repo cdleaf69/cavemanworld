@@ -1,0 +1,17 @@
+.casino-modal-card{width:680px;max-width:100%;border-color:#d5b57c}
+.casino-wallet{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px;background:#263f3f;border:2px solid #809a85}
+.casino-wallet strong{color:#f7d28b;font-size:16px}.casino-wallet label{font-size:11px;color:#c9d3b4}.casino-wallet select{margin-left:8px;padding:6px;background:#425c50;color:#ffe8b7;border:2px solid #a9b591;border-radius:0}
+.slot-machine{margin:16px auto;padding:16px;max-width:450px;background:#916b48;border:4px solid #d4b77f;box-shadow:inset 3px 3px #b7925d,inset -3px -3px #654f40,4px 4px #233e3c;text-align:center}
+.slot-machine-title{color:#ffe5a2;letter-spacing:.13em;font-size:13px;font-weight:bold;margin-bottom:12px}
+.slot-reels{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px;background:#263d3d;border:3px solid #ddb875;margin-bottom:16px}
+.slot-reel{height:110px;display:grid;place-items:center;background:#f1dcac;box-shadow:inset 0 5px #cfb683,inset 0 -5px #cfb683;overflow:hidden}.slot-reel svg{width:75px;height:75px;image-rendering:pixelated}
+.slot-reels.spinning .slot-reel:not(.stopped) svg{animation:reel-tick .12s steps(3,end) infinite}.slot-reels.spinning .slot-reel:nth-child(2) svg{animation-delay:-.04s}.slot-reels.spinning .slot-reel:nth-child(3) svg{animation-delay:-.08s}
+@keyframes reel-tick{0%{transform:translateY(-75px);opacity:.3}50%{transform:translateY(0);opacity:1}100%{transform:translateY(75px);opacity:.3}}
+.slot-rules{display:flex;justify-content:center;gap:15px;flex-wrap:wrap}.slot-rules>span{display:flex;align-items:center;gap:4px;font-size:12px;color:#f2d8a0}.slot-rules svg{width:30px;height:30px}
+.blackjack-table{background:#3a7158;border:5px solid #b49463;box-shadow:inset 2px 2px #a2bd84,inset -2px -2px #2a5045;padding:16px;margin-top:12px}
+.card-hand-heading{display:flex;justify-content:space-between;font-size:12px;letter-spacing:.1em;color:#e9dab1;margin:5px 0}.card-hand{display:flex;gap:9px;flex-wrap:wrap;min-height:107px;padding:6px 0}
+.playing-card{position:relative;display:flex;align-items:center;justify-content:center;width:66px;height:96px;background:#f2e4c0;border:3px solid #ceb58a;box-shadow:3px 3px #2a5045;color:#304b49;animation:deal-card .18s steps(4,end) both}.playing-card b{position:absolute;top:4px;left:5px;font-size:16px}.playing-card span{font-size:33px}.playing-card small{position:absolute;bottom:4px;right:5px;font-size:14px;transform:rotate(180deg)}.playing-card.red-suit{color:#ba6260}.playing-card.card-back{color:#e7c487;background:repeating-linear-gradient(45deg,#617a7b 0 4px,#496362 4px 8px)}
+@keyframes deal-card{from{transform:translateY(-10px);opacity:0}to{transform:translateY(0);opacity:1}}
+.table-rule{font-size:10px;color:#c9d6ae;border-top:1px solid #8fa981;padding:8px 0;margin:3px 0}
+.casino-actions{display:flex;gap:10px;flex-wrap:wrap}.casino-actions .bag-action{flex:1;min-width:100px}.casino-modal-card button:disabled{opacity:.5;cursor:default}.casino-modal-card .bag-action{padding:9px 15px}.casino-modal-card p{margin:12px 0 0}
+@media(max-width:560px){.slot-reel{height:88px}.slot-reel svg{width:60px;height:60px}.slot-rules{gap:8px}.playing-card{width:51px;height:78px}.card-hand{min-height:90px;gap:5px}.casino-wallet strong{font-size:14px}.blackjack-table{padding:10px}}

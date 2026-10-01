@@ -53,10 +53,26 @@ export class RockProjectile {
   }
 }
 
+export class PlayerProjectile {
+ constructor({x,y,point,damage,layer,type,createdAt}){Object.assign(this,{x,y,damage,layer,type,createdAt,active:true,owner:'player'});this.angle=Math.atan2(point.y-y,point.x-x);this.speed=type==='bow'?720:540;this.remaining=Math.min(1100,Math.max(80,Math.hypot(point.x-x,point.y-y)+50));}
+ update(dt,now,player,creatures){
+  if(!this.active)return null;
+  if(player.layer!==this.layer||now-this.createdAt>2300){this.active=false;return null;}
+  const distance=Math.min(this.remaining,this.speed*dt),steps=Math.max(1,Math.ceil(distance/10));
+  for(let i=0;i<steps;i++){
+   this.x+=Math.cos(this.angle)*distance/steps;this.y+=Math.sin(this.angle)*distance/steps;
+   if(!canWalk(this.x,this.y,this.layer,5,true)){this.active=false;return null;}
+   const target=creatures?.nearby(this.x,this.y,this.layer,70).find(c=>c.active!==false&&c.health>0&&Math.hypot(c.x-this.x,c.y-this.y)<(c.radius||22)+8);
+   if(target){this.active=false;return {target,result:target.hit(this.damage,now),damage:this.damage};}
+  }
+  this.remaining-=distance;if(this.remaining<=0)this.active=false;return null;
+ }
+}
 export class ProjectileRegistry {
   constructor(){this.projectiles=[];}
   launch(data,sourceId,now){this.projectiles.push(new RockProjectile({...data,sourceId,createdAt:now}));}
-  update(dt,now,player){const hits=[];for(const projectile of this.projectiles){const hit=projectile.update(dt,now,player);if(hit)hits.push(hit);}this.projectiles=this.projectiles.filter(p=>p.active);return hits;}
+  shoot(data,now){this.projectiles.push(new PlayerProjectile({...data,createdAt:now}));}
+  update(dt,now,player,creatures){const hits=[];for(const projectile of this.projectiles){const hit=projectile.update(dt,now,player,creatures);if(hit)hits.push(hit);}this.projectiles=this.projectiles.filter(p=>p.active);return hits;}
   visible(bounds,layer){return this.projectiles.filter(p=>p.active&&p.layer===layer&&p.x>bounds.left-60&&p.x<bounds.right+60&&p.y>bounds.top-60&&p.y<bounds.bottom+60);}
   clear(){this.projectiles.length=0;}
 }

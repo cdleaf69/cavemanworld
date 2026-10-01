@@ -1,4 +1,4 @@
-import { caveGeometry } from './world.js';
+import { caveGeometry,TOWNS } from './world.js';
 import { PATHS, TUNNELS, DEEP_TUNNELS, PORTALS, DESCENTS, canWalk, distanceToSegment, biomeAt } from './world.js';
 import { Decoration, ResourceNode, ORE_RARITY } from './spawnables.js';
 
@@ -34,6 +34,7 @@ function valid(x,y,zone,radius) {
   if(!zone.contains(x,y)||!canWalk(x,y,zone.layer,radius))return false;
   if(zone.id.startsWith('habitat-')&&biomeAt(x,y).id!==zone.biome)return false;
   if(nearPortal(x,y,zone.layer))return false;
+  if(zone.layer==='surface'&&TOWNS.some(t=>Math.hypot(x-t.x,y-t.y)<830))return false;
   if(zone.layer==='surface' && (nearPath(x,y)||Math.hypot(x-9000,y-7000)<760))return false;
   if(zone.layer!=='surface'&&radius>20&&nearTunnel(x,y,zone.layer))return false;
   return true;

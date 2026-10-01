@@ -11,14 +11,14 @@ test('every armor has a perk and matching biome equipment shares its cave-depth 
   assert.ok(armor.every(recipe=>ARMOR_PERKS[recipe.id]));
   for(const material of ['copper','quartz','amber']){
     const set=RECIPES.filter(r=>r.tier===material);
-    assert.equal(set.find(r=>r.category==='gear').defense,5);
+    assert.equal(set.find(r=>r.category==='gear').defense,9);
     assert.equal(set.find(r=>r.type==='axe').damage,9);
     assert.equal(set.find(r=>r.type==='pickaxe').damage,9);
     assert.equal(set.find(r=>r.type==='club').damage,11);
   }
   for(const material of ['obsidian','moonstone']){
     const set=RECIPES.filter(r=>r.tier===material);
-    assert.equal(set.find(r=>r.category==='gear').defense,8);
+    assert.equal(set.find(r=>r.category==='gear').defense,13);
     assert.equal(set.find(r=>r.type==='axe').damage,15);
     assert.equal(set.find(r=>r.type==='pickaxe').damage,15);
     assert.equal(set.find(r=>r.type==='club').damage,17);
@@ -29,7 +29,7 @@ test('a completed matching tool set boosts the equipped armor perk only while he
   const inventory=new Inventory({level:20});
   inventory.owned.set('quartz-armor',new Gear({id:'quartz-armor',slot:'body',tier:'quartz',defense:5}));
   inventory.equip('quartz-armor');
-  assert.equal(armorEffects(inventory).stats.health,1.18);
+  assert.ok(Math.abs(armorEffects(inventory).stats.health-1.12*1.24)<1e-10);
   for(const id of ARMOR_PERKS['quartz-armor'].tools)inventory.owned.set(id,new Tool({id,type:RECIPES.find(r=>r.id===id).type,tier:'quartz'}));
   assert.equal(armorEffects(inventory).fullSet,true);
   assert.equal(armorEffects(inventory).boosted,false);
