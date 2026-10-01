@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Wildlife and habitat art preview</title><style>body{margin:0;background:#263d34;color:#f5e7bd;font:14px monospace}h1{font-size:22px;margin:20px}canvas{display:block}</style><h1>Wildlife & habitat variety</h1><canvas id="preview" width="1200" height="780"></canvas><script type="module">
+import {AdventureArt} from './src/adventure-art.js';
+import {Creature} from './src/creatures.js';
+const art=new AdventureArt({worker:false}),c=document.getElementById('preview').getContext('2d');
+c.imageSmoothingEnabled=false;c.font='13px monospace';c.textAlign='center';
+for(const [i,kind] of ['rabbit','deer','fox','boar','tortoise','caveBat','caveCrawler','rockScorpion','stoneRam','caveSlime','crystalBeetle','emberGolem'].entries()){
+ const x=100+i%6*195,y=120+Math.floor(i/6)*160,m=new Creature({id:kind,kind,x,y,layer:i<5?'surface':'cave'});art.creature(c,m,0);c.fillStyle='#f5e7bd';c.fillText(m.name,x,y+27);
+}
+for(let i=0;i<8;i++){const s=art.makeResource('tree',i<4?'woodland':i<6?'marsh':'tundra','wood',i);art.draw(c,s,75+i*148,510,1);}
+for(let i=0;i<8;i++){const s=art.makeResource('bush',i<4?'heartlands':'marsh','leaves',i);art.draw(c,s,75+i*148,610,1.5);}
+for(let i=0;i<8;i++){const s=art.makeResource('rock',i<4?'heartlands':'badlands','stone',i);art.draw(c,s,75+i*148,725,1.5);}
+</script></html>
