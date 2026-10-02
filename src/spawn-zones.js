@@ -44,15 +44,10 @@ for(const [index,biome] of BIOMES.entries())DEFAULTS.push([
   biome.polygon.map(p=>[Math.max(30,Math.min(SURFACE.width-30,p.x)),Math.max(30,Math.min(SURFACE.height-30,p.y))]),
 ]);
 DEFAULTS.push(['habitat-meadows','Heartland Meadows','surface','heartlands',['tree','bush','rock','decoration'],['wood','leaves','stone'],[[30,30],[SURFACE.width-30,30],[SURFACE.width-30,SURFACE.height-30],[30,SURFACE.height-30]]]);
-for(const [layer,rooms] of [['cave',CAVE_ROOMS.slice(9)],['deep',DEEP_ROOMS.slice(7)]])for(const [index,room] of rooms.entries()){
-  DEFAULTS.push([`expanded-${layer}-${index}`,room.name,layer,room.biome||'cave',['ore','rock','decoration'],['stone','iron','copper','quartz','amber',...(layer==='deep'?['obsidian','moonstone']:[])],Array.from({length:12},(_,i)=>[room.x+Math.cos(i*Math.PI/6)*room.r,room.y+Math.sin(i*Math.PI/6)*room.r])]);
-}
-
-for(const [layer,data] of Object.entries(EXTRA_CAVES))for(const [i,r] of data.rooms.entries())DEFAULTS.push([`${layer}-veins-${i}`,r.name,layer,r.biome,['ore','rock','decoration'],['stone',r.material],Array.from({length:16},(_,j)=>[r.x+Math.cos(j*Math.PI/8)*r.r,r.y+Math.sin(j*Math.PI/8)*r.r])]);
-for(const zone of DEFAULTS){const depth=zone[2]==='cave'?1:zone[2]==='deep'?2:0;if(depth){const m=MATERIALS.find(m=>m.depth===depth&&m.biome===zone[3].replace('deep-',''));if(m&&!zone[5].includes(m.id))zone[5].push(m.id);}}
-for(const m of MATERIALS.filter(m=>m.depth<=2)){
-  const rooms=m.depth===1?CAVE_ROOMS:DEEP_ROOMS,indices=m.depth===1?{woodland:0,tundra:3,marsh:5,badlands:4,volcanic:7}:{woodland:0,tundra:2,marsh:5,badlands:1,volcanic:3},r=rooms[indices[m.biome]];
-  DEFAULTS.push([`material-${m.id}`,`${m.name} Veins`,m.depth===1?'cave':'deep',m.biome,['ore'],[m.id],Array.from({length:12},(_,i)=>[r.x+Math.cos(i*Math.PI/6)*r.r*.88,r.y+Math.sin(i*Math.PI/6)*r.r*.88])]);
+for(let i=DEFAULTS.length-1;i>=0;i--)if(DEFAULTS[i][2]!=='surface'||DEFAULTS[i][0]==='village-starters')DEFAULTS.splice(i,1);
+for(const [layer,rooms,depth] of [['cave',CAVE_ROOMS,1],['deep',DEEP_ROOMS,2],...Object.entries(EXTRA_CAVES).map(([layer,g])=>[layer,g.rooms,g.depth])])for(const [i,r] of rooms.entries()){
+ const biome=r.biome.replace('deep-',''),m=MATERIALS.find(m=>m.depth===depth&&m.biome===biome)||MATERIALS.find(m=>m.depth===depth);
+ DEFAULTS.push([`${layer}-chamber-${i}`,r.name,layer,biome,['ore','rock','ground','decoration'],['stone','iron',m.id],Array.from({length:20},(_,j)=>[r.x+Math.cos(j*Math.PI/10)*r.r*.94,r.y+Math.sin(j*Math.PI/10)*r.r*.94])]);
 }
 export const defaultZones = () => DEFAULTS.map(([id,name,layer,biome,allowedTypes,resources,vertices]) => ({
   id, name, layer, biome, allowedTypes: [...new Set([...allowedTypes,...(resources.includes('stone')?['ground']:[])])], resources: [...resources,...(allowedTypes.includes('bush')?['sticks']:[])],
@@ -82,25 +77,12 @@ export class SpawnZoneManager {
   }
   load() {
     try {
-      const current=this.storage?.getItem('embervale.spawnZones.v3');
-      const previous=this.storage?.getItem('embervale.spawnZones.v2');
-      const saved = JSON.parse(current||previous||this.storage?.getItem('embervale.spawnZones.v1'));
-      if (Array.isArray(saved) && saved.length && saved.every(z => z.id && z.vertices?.length >= 3)) {
-        const known=new Set(saved.map(z=>z.id));
-        const upgrades=new Map(defaultZones().map(z=>[z.id,z]));
-        const expanded=new Set(['village-grove','elder-canopy','mire-thicket']);
-        const migrated=current?saved:saved.map(z=>{
-          const fresh=upgrades.get(z.id);if(!fresh)return z;
-          const cx=z.vertices.reduce((sum,p)=>sum+p.x,0)/z.vertices.length,cy=z.vertices.reduce((sum,p)=>sum+p.y,0)/z.vertices.length;
-          const vertices=expanded.has(z.id)?z.vertices.map(p=>({x:Math.round(cx+(p.x-cx)*1.15),y:Math.round(cy+(p.y-cy)*1.15)})):z.vertices;
-          return {...z,vertices,allowedTypes:previous?z.allowedTypes:[...new Set([...z.allowedTypes,...fresh.allowedTypes])],resources:previous?z.resources:[...new Set([...z.resources,...fresh.resources])],biome:previous?z.biome:fresh.biome};
-        });
-        return [...migrated,...defaultZones().filter(z=>!known.has(z.id))].map(z=>new SpawnZone(z));
-      }
+      const saved=JSON.parse(this.storage?.getItem('embervale.spawnZones.v4'));
+      if(Array.isArray(saved)&&saved.length&&saved.every(z=>z.id&&z.vertices?.length>=3))return saved.map(z=>new SpawnZone(z));
     } catch { /* invalid saved data: return to defaults */ }
     return defaultZones().map(z => new SpawnZone(z));
   }
-  save() { this.storage?.setItem('embervale.spawnZones.v3', JSON.stringify(this.zones)); }
+  save() { this.storage?.setItem('embervale.spawnZones.v4', JSON.stringify(this.zones)); }
   reset() { this.zones = defaultZones().map(z => new SpawnZone(z)); this.save(); }
   at(x,y,layer) { return [...this.zones].reverse().find(z => z.layer === layer && z.contains(x,y)) || null; }
   forLayer(layer) { return this.zones.filter(z => z.layer === layer); }

@@ -29,10 +29,10 @@ export function playerArmPose(player,time,type=null,fishing=null){
     const hand={x:x+dx,y:(side?47:45)+dy+stride*(index===0?2:-2)};
     let elbow={x:x+dx*(side?.3:.6),y:(side?39:38)+dy*.3};
     if(side&&player.moving){
-      // Short upper arm, then a lifted forearm: both elbows point into the run.
-      const beat=stride*(index===0?1:-1);
-      elbow={x:x+1.5+beat,y:39+beat*.3};
-      hand.x=elbow.x+3.5;hand.y=38+beat*.5;
+      // Opposing shoulder swings, with relaxed elbows and hands below the waist.
+      const beat=stride*(index===0?1:-1),angle=beat*.58;
+      elbow={x:x+Math.sin(angle)*8,y:31+Math.cos(angle)*8};
+      hand.x=elbow.x+Math.sin(angle+.16)*9;hand.y=elbow.y+Math.cos(angle+.16)*9;
     }
     if(type&&index===heldArm){
       hand.y-=(side&&player.moving?1.5:5)+attack*4;

@@ -356,7 +356,6 @@ export class WorldRenderer {
     // Screen-space labels stay legible at every atlas size.
     if(canvas.width>500&&layer==='surface'){
       for(const biome of BIOMES){const x=ox+biome.center[0]*scale,y=oy+biome.center[1]*scale;label(ctx,biome.name.toUpperCase(),x,y,{size:14,color:'#25392d'});}
-      label(ctx,'CENTRAL VILLAGE',ox+9000*scale,oy+7000*scale+22,{size:15,color:'#4c3d2d'});
     }
     const px=ox+player.x*scale,py=oy+player.y*scale;
     circle(ctx,px,py,canvas.width>500?7:4);ctx.fillStyle='#fff3bb';ctx.fill();ctx.strokeStyle='#263227';ctx.lineWidth=2;ctx.stroke();

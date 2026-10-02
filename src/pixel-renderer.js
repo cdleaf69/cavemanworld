@@ -1,4 +1,4 @@
-import { EXTRA_CAVES,LAYERS,caveGeometry } from './world.js';
+import { EXTRA_CAVES,LAYERS,caveGeometry,portalDirection } from './world.js';
 import { WorldRenderer } from './renderer.js';
 import { grain } from './pixel-art.js';
 import { AdventureArt } from './adventure-art.js';
@@ -35,7 +35,6 @@ export class PixelWorldRenderer extends WorldRenderer {
     if(layer==='surface'){
       for(const building of TOWN_BUILDINGS)if(!building.hut&&visible(building.x,building.y))objects.push({y:building.y+60,draw:()=>drawCasinoBuilding(ctx,this.art,building)});
       HUTS.forEach((hut,index)=>{if(visible(hut.x,hut.y))objects.push({y:hut.y,draw:()=>this.art.hut(ctx,hut,index)});});
-      if(visible(9000,6850))objects.push({y:6850,draw:()=>this.art.fire(ctx,9000,6850,time)});
       for(const landmark of LANDMARKS.filter(l=>l.layer==='surface'&&!['village','casino'].includes(l.type)&&visible(l.x,l.y,500)))objects.push({y:landmark.y,draw:()=>this.landmark(ctx,landmark,time)});
     }
     for(const portal of [...PORTALS,...DESCENTS]){const p=portal[layer];if(p&&visible(p.x,p.y))objects.push({y:p.y,draw:()=>this.portal(ctx,p,portal,layer)});}
@@ -114,21 +113,22 @@ export class PixelWorldRenderer extends WorldRenderer {
     this.art.requestAtlas();ctx.fillStyle='#88cf67';ctx.fillRect(0,0,SURFACE.width,SURFACE.height);
     if(this.art.atlas){ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(this.art.atlas,0,0,SURFACE.width,SURFACE.height);ctx.restore();}
     this.drawRiver(ctx);for(const lake of LAKES){ctx.fillStyle='#2c8bc7';ctx.beginPath();lakeOutline(lake).forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fill();}this.drawPaths(ctx,true);
-    ctx.fillStyle='#cbb88c';ctx.beginPath();ctx.arc(9000,7000,600,0,Math.PI*2);ctx.fill();this.drawPortals(ctx,'surface',b,true);
+    this.drawPortals(ctx,'surface',b,true);
     ctx.fillStyle='#f6d075';ctx.fillRect(CASINO_BUILDING.x-140,CASINO_BUILDING.y-140,280,280);
     for(const town of TOWNS){ctx.fillStyle='#f4d996';ctx.fillRect(town.x-170,town.y-170,340,340);}
   }
   portal(ctx,p,portal,layer){
-    const sprite=this.art.sprite(`portal:${!!portal.deep}:${layer}`,()=>{
+    const direction=portalDirection(portal,layer);
+    const sprite=this.art.sprite(`portal:${direction}:${layer}`,()=>{
       const image=document.createElement('canvas');image.width=140;image.height=120;const c=image.getContext('2d');
       c.fillStyle='#1b292b';c.beginPath();c.moveTo(24,100);c.lineTo(28,60);c.lineTo(49,36);c.lineTo(81,27);c.lineTo(109,52);c.lineTo(117,99);c.closePath();c.fill();
-      const shades=portal.deep?['#696777','#858596','#a9a1ad']:['#68736b','#8b9582','#b3b497'];
+      const shades=direction==='Descend'?['#826045','#af815a','#d6a06c']:['#466c80','#6793a7','#9fc9d1'];
       for(let i=0;i<13;i++){const a=Math.PI+i*Math.PI/12,x=70+Math.cos(a)*48,y=91+Math.sin(a)*58;c.fillStyle=shades[i%3];c.fillRect(Math.round(x-12),Math.round(y-9),24,19);c.fillStyle='#34463b88';c.fillRect(x-10,y+5,22,5);c.fillStyle='#d0c8a744';c.fillRect(x-9,y-9,13,2);}
       for(let i=0;i<5;i++){c.fillStyle=i%2?'#445949':'#8a9880';c.fillRect(42-i*3,85+i*4,55+i*6,3);}
       for(let i=0;i<30;i++){const x=22+grain(i,4)*99,y=24+grain(9,i)*78;if(x<40||x>100){c.fillStyle='#537c56';c.fillRect(x,y,3,5);}}
       return {image,ax:70,ay:97};
     });this.art.shadow(ctx,p.x,p.y,115);this.art.draw(ctx,sprite,p.x,p.y,2.05);
-    this.text(ctx,portal.name,p.x,p.y+67,23,layer==='surface'?'#e3dfb9':'#c9c1d8');
+    this.text(ctx,`${portal.name} (${direction})`,p.x,p.y+67,23,layer==='surface'?'#e3dfb9':'#c9c1d8');
   }
   landmark(ctx,l,time){
     if(l.type==='pool')return;

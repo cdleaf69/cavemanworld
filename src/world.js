@@ -83,7 +83,7 @@ export const PATHS = [
   {name:'Southroot Way',points:[[5500,18300],[6200,21000],[8500,24000],[7800,27300],[4900,30000],[2400,32000]]},
   {name:'Rainveil Passage',points:[[26700,18700],[27900,21100],[27200,24500],[24400,27600],[24600,29300],[22800,31000],[19100,32200]]},
   {name:'Southern Connector',points:[[7800,27300],[12200,28100],[16000,29000],[19100,32200],[22800,31000],[28500,31500],[33700,32000],[40700,31100],[48500,28600]]},
-  {name:'Hearthside Lane',points:[[9000,7000],[9330,7430],[9700,7650],[9900,7596]]},
+  {name:'Hearthside Lane',points:[[9000,7000],[8500,7000],[8500,7660],[8800,7660],[8800,7626]]},
 ];
 
 export const RIVER = [[7750,-100],[7560,1000],[7970,2270],[7720,3260],[7330,4250],[7610,5260],[7990,6190],[8170,7450],[7590,8700],[7100,9900],[7200,11300],[6750,14050],[7200,16100],[7900,17800],[6900,19400],[7100,21200],[9600,23000],[11000,25700],[12500,28200],[13900,31000],[13300,35200]];
@@ -201,8 +201,9 @@ for(const [layer,depth] of [['abyss',3],['core',4]]){
 }
 for(const town of TOWNS){
  PATHS.push({name:`${town.name} Approach`,points:town.approach||[town.connection,[town.x,town.y]]});
- for(const b of TOWN_BUILDINGS.filter(b=>b.town===town.id&&b.id!=='lucky-hearth')){const side=b.x+(b.x<town.x?-250:250);PATHS.push({name:`${b.name} Lane`,points:b.type==='house'?[[town.x,town.y],[side,town.y],[side,b.y+126],[b.x,b.y+126]]:[[town.x,town.y],[b.x,town.y],[b.x,b.y+126]]});}
+ for(const b of TOWN_BUILDINGS.filter(b=>b.town===town.id&&b.id!=='lucky-hearth')){const side=b.x+(b.x<town.x?-250:250);PATHS.push({name:`${b.name} Lane`,points:b.type==='casino'?[[town.x,town.y],[town.x,town.y+280],[b.x,town.y+280],[b.x,b.y+126]]:b.type==='house'?[[town.x,town.y],[town.x,town.y+950],[b.x,town.y+950],[b.x,b.y+126]]:[[town.x,town.y],[b.x,town.y],[b.x,b.y+126]]});}
 }
+PATHS.push({name:'Lucky Hearth Lane',points:[[10600,7600],[10600,7660],[8800,7660],[8800,7626]]});
 export const CASINO_BUILDING=TOWN_BUILDINGS[0];
 export const CASINO={width:1100,height:850,spawn:{x:550,y:700}};
 export const BUILDING_PORTALS=TOWN_BUILDINGS.map(b=>({id:b.id,name:b.name,surface:{x:b.x,y:b.y+(b.hut?160:126)},[b.layer]:{x:550,y:755}}));
@@ -215,8 +216,40 @@ export function caveGeometry(layer){return EXTRA_CAVES[layer]||{rooms:layer==='d
 export function portalDestination(portal,layer){return Object.keys(LAYERS).find(key=>key!==layer&&portal[key]);}
 DESCENTS.push({id:'abyss-descent',name:'Abyss Descent',deep:{x:4850,y:3400},abyss:{x:1700,y:1500}}, {id:'core-descent',name:'Core Descent',abyss:{x:4400,y:4600},core:{x:1700,y:1500}});
 
+// Every underground layer uses the same north-up coordinates as the surface.
+// Old room arrays are regenerated in place so all consumers share the geometry.
+const chamberNames=['Elder Chamber','Frost Vault','Redstone Grotto','Mire Hollow','Ash Vault','Emerald Hollow','Silverpine Vault','Cinderfall Rift','Southroot Hollow','Lotus Cavern','Aurora Vault','Ember Coast Rift'];
+const roomBiome=r=>biomeAt(r.x,r.y,'surface').id;
+const upper=PORTALS.map((p,i)=>{p.cave={...p.surface};return {...p.cave,r:1400+(i%3)*160,name:chamberNames[i],biome:roomBiome(p.surface)};});
+upper.push({x:9000,y:7000,r:1700,name:'Echo Hall',biome:'woodland'},{x:19000,y:12000,r:1900,name:'The Deep Hearth',biome:'badlands'},{x:28500,y:20500,r:1800,name:'Iron Lode',biome:'badlands'},{x:15500,y:25500,r:1700,name:'Glowpool',biome:'marsh'},{x:41500,y:19000,r:2000,name:'The Root Cathedral',biome:'woodland'});
+function connectedTunnels(rooms){
+ const connected=[0],remaining=new Set(rooms.slice(1).map((_,i)=>i+1)),tunnels=[],edges=new Set();
+ const link=(a,b)=>{const key=[a,b].sort((x,y)=>x-y).join(':');if(edges.has(key))return;edges.add(key);const p=rooms[a],q=rooms[b];tunnels.push({width:620,points:[[p.x,p.y],[(p.x+q.x)/2,(p.y+q.y)/2],[q.x,q.y]]});};
+ while(remaining.size){let pair,best=Infinity;for(const a of connected)for(const b of remaining){const d=Math.hypot(rooms[a].x-rooms[b].x,rooms[a].y-rooms[b].y);if(d<best){best=d;pair=[a,b];}}link(...pair);connected.push(pair[1]);remaining.delete(pair[1]);}
+ for(let a=0;a<rooms.length;a++){const nearest=rooms.map((r,i)=>({i,d:Math.hypot(r.x-rooms[a].x,r.y-rooms[a].y)})).filter(r=>r.i!==a).sort((p,q)=>p.d-q.d).slice(0,2);for(const b of nearest)link(a,b.i);}
+ return tunnels;
+}
+CAVE_ROOMS.splice(0,CAVE_ROOMS.length,...upper);TUNNELS.splice(0,TUNNELS.length,...connectedTunnels(upper));
+Object.assign(CAVES,{width:SURFACE.width,height:SURFACE.height,spawn:{...upper[12]}});
+const deep=upper.map((r,i)=>({...r,r:r.r+250,name:['Root Descent','Frost Root','Prism Gallery','Bone Trench','Ember Deep','Jade Abyss','Aurora Crypt','Obsidian Throne','Forgotten Gardens','Lotus Deep','Aurora Deep','Ember Coast Deep','Black Heart','Moon Vault','Sunstone Vault','Bogiron Garden','Jade Cathedral'][i],biome:'deep-'+r.biome}));
+DEEP_ROOMS.splice(0,DEEP_ROOMS.length,...deep);DEEP_TUNNELS.splice(0,DEEP_TUNNELS.length,...connectedTunnels(deep));
+Object.assign(DEEP_CAVES,{width:SURFACE.width,height:SURFACE.height,spawn:{x:deep[12].x,y:deep[12].y}});
+const descentRooms=[12,1,4,15,5,7];
+DESCENTS.splice(0,DESCENTS.length,...['echo','frost','ash','glow','emerald','cinder'].map((id,i)=>{const r=upper[descentRooms[i]];const point={x:r.x+400,y:r.y+350};return {id:id+'-descent',name:r.name+' Passage',cave:{...point},deep:{...point}};}));
+for(const [layer,depth] of [['abyss',3],['core',4]]){
+ const materials=MATERIALS.filter(m=>m.depth===depth);
+ const rooms=upper.map((r,i)=>{const m=materials.find(m=>m.biome===r.biome)||materials[i%materials.length];return {...r,r:r.r+400,biome:m.biome,material:m.id,name:m.name+' '+(i+1)+(layer==='core'?' Sanctum':' Hollow')};});
+ Object.assign(EXTRA_CAVES[layer],{width:SURFACE.width,height:SURFACE.height,rooms,tunnels:connectedTunnels(rooms),spawn:{x:rooms[12].x,y:rooms[12].y}});
+}
+DESCENTS.push({id:'abyss-descent',name:'Abyss Passage',deep:{x:19400,y:12350},abyss:{x:19400,y:12350}},{id:'core-descent',name:'Core Passage',abyss:{x:41900,y:19350},core:{x:41900,y:19350}});
+export function portalDirection(portal,layer){const order=['surface','cave','deep','abyss','core'];return order.indexOf(portalDestination(portal,layer))>order.indexOf(layer)?'Descend':'Ascend';}
+export function randomSurfaceSpawn(rng=Math.random){
+ // Pick one of several inhabited regions, then a safe patch outside town buildings.
+ for(let i=0;i<150;i++){const town=TOWNS[Math.min(TOWNS.length-1,Math.floor(rng()*TOWNS.length))],angle=rng()*Math.PI*2,radius=850+rng()*700,x=Math.round(town.x+Math.cos(angle)*radius),y=Math.round(town.y+Math.sin(angle)*radius);if(canWalk(x,y,'surface',220))return {x,y};}
+ return {x:10600,y:7600};
+}
+
 export const LANDMARKS = [
-  { x: 9000, y: 7000, name: 'Central Village', type: 'village', layer: 'surface' },
   { x: 4850, y: 2260, name: 'Ancestor Stones', type: 'stones', layer: 'surface' },
   { x: 2520, y: 6400, name: 'Old Root', type: 'root', layer: 'surface' },
   { x: 11360, y: 1860, name: 'Ice Fang', type: 'ice', layer: 'surface' },
@@ -231,7 +264,7 @@ export const LANDMARKS = [
   {x:46400,y:2400,name:'Aurora Needle',type:'ice',layer:'surface'},
   {x:51100,y:32200,name:'Ember Coast Caldera',type:'crater',layer:'surface'},
   {x:7800,y:27300,name:'Southroot Sentinel',type:'root',layer:'surface'},
-  {x:9900,y:7470,name:'The Lucky Hearth',type:'casino',layer:'surface'},
+  {x:8800,y:7500,name:'The Lucky Hearth',type:'casino',layer:'surface'},
   ...CAVE_ROOMS.map((room, i) => ({ x: room.x, y: room.y, name: room.name, type: 'room', layer: 'cave', index: i })),
   ...DEEP_ROOMS.map((room, i) => ({ x: room.x, y: room.y, name: room.name, type: 'room', layer: 'deep', index: i })),
 ];

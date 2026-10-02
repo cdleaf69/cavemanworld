@@ -18,7 +18,7 @@ function surfaceSample(x,y){
   const soil=clamp((noise(x+600,y-900,230)-.64)*2.4);color=mix(color,[125,115,75],soil*.5);
   const path=nearbyDistance(x,y,trailSegments),river=nearbyDistance(x,y,riverSegments);
   const clearing=Math.hypot(x-9000,y-7000);
-  const village=clamp((760-clearing+(detail-.5)*65)/110);
+  const village=0;
   const trail=clamp((65-path+(detail-.5)*20)/28);
   color=mix(color,[152+detail*15,130+detail*12,88+detail*10],Math.max(village,trail)*.94);
   const waterDistance=Math.min(river-83,lakeWaterDistance(x,y));

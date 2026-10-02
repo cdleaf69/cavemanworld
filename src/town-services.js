@@ -1,7 +1,7 @@
 import {RESOURCES,RECIPES} from './crafting.js';
 import {MATERIALS} from './materials.js';
 export const HOUSE_RESPAWN_MS=120000;
-export function resourcePrice(id){const m=MATERIALS.find(m=>m.id===id);return m?[0,4,10,18,30][m.depth]:({iron:4,hide:3,bone:3,wing:4,shell:5,venom:5,glimmer:18,cookedMeat:4,cookedFish:4,meat:2,rawFish:2,wood:2}[id]||1);}
+export function resourcePrice(id){const m=MATERIALS.find(m=>m.id===id);return m?[0,4,10,18,30][m.depth]:({sinew:6,fang:9,essence:20,iron:4,hide:3,bone:3,wing:4,shell:5,venom:5,glimmer:18,cookedMeat:4,cookedFish:4,meat:2,rawFish:2,wood:2}[id]||1);}
 export function tradeResource(inventory,id,amount,buy){
  if(!RESOURCES.includes(id)||![1,5].includes(amount))return {ok:false,message:'Choose a resource and quantity.'};
  const price=resourcePrice(id)*(buy?2:1)*amount;
@@ -35,9 +35,9 @@ export class HouseLoot {
   const loot={},common=['sticks','leaves','stone','wood','meat','rawFish','hide'];
   for(let i=0;i<3;i++){const r=common[Math.floor(this.rng()*common.length)];loot[r]=(loot[r]||0)+1+Math.floor(this.rng()*3);}
   const lucky=this.rng()<.12;if(lucky){const rare=['iron','copper','quartz','amber','glimmer'];loot[rare[Math.floor(this.rng()*rare.length)]]=1+Math.floor(this.rng()*2);}
-  state={loot,coins:5+Math.floor(this.rng()*8)+(lucky?20:0),collected:false,readyAt:now};this.houses.set(id,state);
+  state={loot,coins:0,collected:false,readyAt:now};this.houses.set(id,state);
  }return state;}
  collect(id,now,inventory){const state=this.peek(id,now);if(state.collected)return {ok:false,message:`The chest refills in ${Math.ceil((state.readyAt-now)/1000)} seconds.`};
-  for(const [r,n] of Object.entries(state.loot))inventory.add(r,n);inventory.coins+=state.coins;state.collected=true;state.readyAt=now+HOUSE_RESPAWN_MS;
-  return {ok:true,message:`Collected supplies and ${state.coins} coins. More loot in two minutes.`};}
+  for(const [r,n] of Object.entries(state.loot))inventory.add(r,n);state.collected=true;state.readyAt=now+HOUSE_RESPAWN_MS;
+  return {ok:true,message:`Collected supplies. Sell them at a general shop. More loot in two minutes.`};}
 }

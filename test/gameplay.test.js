@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SpawnZoneManager } from '../src/spawn-zones.js';
 import { ResourceNode, SpawnableRegistry, Tool } from '../src/spawnables.js';
-import { populateWorld } from '../src/spawner.js';
+import { populateWorld,populateSpawnSupplies } from '../src/spawner.js';
 import { Inventory, RECIPES } from '../src/crafting.js';
 import { PATHS, DEEP_TUNNELS } from '../src/world.js';
 
@@ -11,7 +11,7 @@ test('zones create visible, separate resource objects and hand-pickable starters
   const counts=populateWorld(zones,registry);
   assert.ok(counts.nodes>500);
   assert.ok(counts.decorations>100);
-  assert.equal(registry.nearest(9000,7000,'surface')?.label,'Pebble');
+  assert.ok([...registry.nodes.values()].some(n=>n.kind==='ground'&&n.layer==='surface'));assert.ok(![...registry.nodes.values()].some(n=>n.id.startsWith('starter-')));
   assert.ok([...registry.nodes.values()].filter(n=>n.kind==='tree'&&n.layer==='surface').length>=140);
   assert.ok([...registry.nodes.values()].some(n=>n.kind==='tree'&&n.zoneId==='heartlands-east'));
   assert.ok([...registry.nodes.values()].some(n=>n.kind==='bush'&&n.layer==='surface'));
@@ -70,8 +70,8 @@ test('resource nodes are passable and return after their respawn delay', () => {
 test('biome ores and deep rare veins spawn, with iron tools required for the rarest',()=>{
   const registry=new SpawnableRegistry();populateWorld(new SpawnZoneManager(null),registry);
   const ores=[...registry.nodes.values()].filter(n=>n.kind==='ore');
-  for(const [zone,resource] of [['frost-cave','quartz'],['red-cave','copper'],['mire-cave','amber'],['ash-cave','obsidian'],['moon-deep','moonstone']]){
-    assert.ok(ores.some(n=>n.zoneId===zone&&n.resource===resource),`${resource} missing from ${zone}`);
+  for(const [zone,resource] of [['cave','quartz'],['cave','copper'],['cave','amber'],['deep','obsidian'],['deep','moonstone']]){
+    assert.ok(ores.some(n=>n.layer===zone&&n.resource===resource),`${resource} missing from ${zone}`);
   }
   assert.ok(ores.filter(n=>n.layer==='deep').length>50);
   for(const tunnel of DEEP_TUNNELS)for(let i=1;i<tunnel.points.length;i++){
@@ -87,7 +87,7 @@ test('biome ores and deep rare veins spawn, with iron tools required for the rar
 test('starter foraging unlocks axes, wood upgrades, and retained inventory', () => {
   const bag=new Inventory({level:20}),registry=new SpawnableRegistry();
   populateWorld(new SpawnZoneManager(null),registry);
-  const starters=[...registry.nodes.values()].filter(n=>n.zoneId==='village-starters');
+  populateSpawnSupplies(registry,{x:13000,y:8500});const starters=[...registry.nodes.values()].filter(n=>n.zoneId==='spawn-supplies');
   const collect=(node,time,tool=bag.equippedTool)=>{const result=node.take(time,tool);if(result.loot)for(const [r,n]of Object.entries(result.loot))bag.add(r,n);return result;};
   const tree=starters.find(n=>n.kind==='tree'),bush=starters.find(n=>n.kind==='bush'),boulder=starters.find(n=>n.kind==='rock');
   assert.equal(collect(tree,0).ok,false);

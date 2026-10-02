@@ -2,7 +2,7 @@ import { MATERIALS } from './materials.js';
 import { Progression } from './progression.js';
 import { Gear, Tool } from './spawnables.js';
 
-export const RESOURCES = ['arrows', 'leaves', 'sticks', 'wood', 'stone', 'iron', 'copper', 'quartz', 'amber', 'obsidian', 'moonstone', 'meat', 'cookedMeat', 'rawFish', 'cookedFish', 'hide', 'bone', 'wing', 'shell', 'venom', 'glimmer'];
+export const RESOURCES = ['sinew','fang','essence','arrows', 'leaves', 'sticks', 'wood', 'stone', 'iron', 'copper', 'quartz', 'amber', 'obsidian', 'moonstone', 'meat', 'cookedMeat', 'rawFish', 'cookedFish', 'hide', 'bone', 'wing', 'shell', 'venom', 'glimmer'];
 export const RECIPES = [
   {id:'wood-bow',name:'Wood Bow',category:'tool',type:'bow',tier:'wood',damage:12,cost:{wood:4,sticks:3,leaves:3},detail:'Click to fire an arrow. Buy arrows from a blacksmith.'},
   {id:'slingshot',name:'Slingshot',category:'tool',type:'slingshot',tier:'wood',damage:7,cost:{sticks:3,hide:1,leaves:2},detail:'Click to shoot a stone toward the cursor. Uses one stone per shot.'},
@@ -61,9 +61,12 @@ for(const material of MATERIALS){
 }
 for(const r of RECIPES){r.level??=r.tier==='iron'?3:1;if(r.category==='gear'&&!MATERIALS.some(m=>m.id===r.tier))r.defense=Math.ceil(r.defense*1.4)+1;if(r.category==='gear')r.detail=r.detail.replace(/blocks \d+ damage/,`blocks ${r.defense} damage`);}
 
+for(const m of MATERIALS.filter(m=>m.depth>=2))for(const [type,multiplier,amount,range,cooldown,knockback] of [['sword',1.35,10,145,330,15],['spear',1.05,8,220,530,30],['warhammer',1.6,12,110,800,110]]){
+ RECIPES.push({id:`${m.id}-${type}`,name:`${m.name} ${type[0].toUpperCase()+type.slice(1)}`,category:'tool',type,tier:m.id,damage:Math.ceil((m.damage+2)*multiplier),level:m.level,cost:{[m.id]:amount,wood:3,hide:2},range,cooldown,knockback,detail:type==='sword'?'Faster swings and more damage than a club; costs more ore.':type==='spear'?'Long reach with moderate damage and knockback.':'Heavy damage and strong knockback; slow swings.'});
+}
 export class Inventory {
   constructor({level=1}={}) {
-    this.coins=60;
+    this.coins=0;
     this.progression=new Progression(level);
     this.resources = Object.fromEntries(RESOURCES.map(resource=>[resource,0]));
     this.owned = new Map();
@@ -89,7 +92,7 @@ export class Inventory {
     for (const [resource, amount] of Object.entries(recipe.cost)) this.resources[resource] -= amount;
     if(recipe.category==='structure'){this.structures[recipe.id]=(this.structures[recipe.id]||0)+1;return {ok:true,recipe,item:null};}
     const item = recipe.category === 'tool'
-      ? new Tool({ id:recipe.id, type:recipe.type, tier:recipe.tier, power:recipe.power, yield:recipe.yield, damage:recipe.damage })
+      ? new Tool(recipe)
       : new Gear({ id:recipe.id, slot:recipe.slot, tier:recipe.tier, defense:recipe.defense });
     this.progression.gain(20);
     this.owned.set(recipe.id, item);

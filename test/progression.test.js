@@ -18,7 +18,7 @@ test('XP unlocks upgrades and cannot exceed level twenty',()=>{
 });
 test('every biome depth has equal base equipment stats and a complete set bonus',()=>{
   for(const m of MATERIALS){
-    const recipes=RECIPES.filter(r=>r.tier===m.id);assert.equal(recipes.length,4);
+    const recipes=RECIPES.filter(r=>r.tier===m.id&&!['sword','spear','warhammer'].includes(r.type));assert.equal(recipes.length,4);
     const inv=new Inventory({level:20});for(const id of RESOURCES)inv.add(id,100);
     for(const r of recipes){assert.equal(r.level,m.depth*3);assert.equal(r.defense,r.category==='gear'?m.defense:undefined);assert.equal(r.damage,m.damage+(r.type==='club'?2:0));assert.equal(inv.craft(r.id).ok,true);}
     inv.equip(recipes.find(r=>r.category==='gear').id);inv.equip(`${m.id}-axe`);const effects=armorEffects(inv);assert.ok(effects.boosted);assert.equal(effects.perk.stat,m.stat);assert.ok(effects.stats[m.stat]>effects.perk.base);

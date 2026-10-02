@@ -38,8 +38,20 @@ export function toolSvg(recipe,dark,light){
   const head=recipe.tier==='wood'?'#aa7b35':light,shade=recipe.tier==='wood'?'#705035':dark;
   art=`<path d="M3 29v-3h3v-4h3v-4h3v-4h3V9h3V5h3V2h6v2h3v7h-3v4h-4v4h-5v3h-4v4h-4v4H5v2H2v-3z" fill="#62483d"/><path d="M5 27h3v-5h3v-4h3v-4h3V9h3V5h6v1h2v6h-4v4h-4v3h-5v3h-4v4H8v3H5z" fill="${head}"/><path d="M8 25h3v-5h3v-4h3v-4h3V7h3V4h3v3h-2v5h-4v4h-4v4h-4v4z" fill="${shade}"/><path d="M13 18h3v-4h3v-4h3V6h3v3h-2v5h-4v4h-3v3h-3z" fill="#f5d78c" opacity=".6"/>`;
   art+=rect(5,27,4,1,'#dbb27a')+rect(8,24,3,1,'#dbb27a');
+ }else if(recipe.type==='sword'){
+  art=`<path d="M7 28 23 5l5-3-1 7L12 29z" fill="${light}"/><path d="m9 27 17-22" stroke="${dark}" stroke-width="2"/><path d="m5 22 12 7" stroke="#e0bc76" stroke-width="3"/><path d="m3 31 5-7" stroke="#76553e" stroke-width="4"/>`;
+ }else if(recipe.type==='spear'){
+  art=`<path d="m3 31 22-23" stroke="#896447" stroke-width="3"/><path d="m21 11 1-7 9-4-4 9-5 3z" fill="${light}"/><path d="m23 10 6-7" stroke="${dark}" stroke-width="2"/>`;
+ }else if(recipe.type==='warhammer'){
+  art=`<path d="m6 30 14-19" stroke="#896447" stroke-width="5"/><path d="m13 5 7-4 12 11-6 7z" fill="${dark}"/><path d="m15 5 5-2 9 9-4 4z" fill="${light}"/>`;
  }else if(recipe.type==='bow'){
-  art=`<path d="M12 3h5v3h4v4h3v5h2v7h-2v5h-3v3h-5v-3h4v-5h2v-7h-2v-5h-4V6h-4z" fill="#79523b"/><path d="M14 4h3v4h4v6h2v9h-3v4h-3" fill="none" stroke="#d4a568" stroke-width="2"/><path d="M13 4 15 29" stroke="#f1e4bb" stroke-width="1"/><path d="M12 19h10v4H12z" fill="#8b6146"/>`;
+  art=`<path d="M12 3h5v3h4v4h3v5h2v7h-2v5h-3v3h-5v-3h4v-5h2v-7h-2v-5h-4V6h-4z" fill="${dark}"/><path d="M14 4h3v4h4v6h2v9h-3v4h-3" fill="none" stroke="${light}" stroke-width="2"/><path d="M13 4 15 29" stroke="#f1e4bb" stroke-width="1"/><path d="M12 19h10v4H12z" fill="#8b6146"/>`;
+  const level=recipe.bowLevel||0;
+  if(level>=1)for(let i=0;i<3;i++)art+=rect(12,19+i,10,1,i%2?'#d4c29b':dark);
+  if(level>=2)art+=`<path d="M17 6h4v4h3v6h2v7h-3v4h-3" fill="none" stroke="${light}" stroke-width="2"/>`;
+  if(level>=3)art+=rect(21,12,4,7,light)+rect(22,12,1,5,'#f5efcb');
+  if(level>=4)art+=`<path d="m12 3 3-3 3 6M16 29l3 3 3-5" stroke="${light}" stroke-width="2" fill="none"/>`;
+  if(level>=5)art+=rect(25,17,3,6,light)+rect(26,16,1,7,'#ecf5e7');
  }else if(recipe.type==='slingshot'){
   art=`<path d="M13 29V18L7 9V4h4v5l5 6 5-6V4h4v6l-7 9v10z" fill="#76543b"/><path d="M14 27v-9L9 9V5M17 18l6-9V5" fill="none" stroke="#d4a76e" stroke-width="2"/><path d="M9 5 16 12 23 5" fill="none" stroke="#b98264" stroke-width="2"/><rect x="14" y="11" width="4" height="4" fill="#657b80"/>`;
  }else if(recipe.type==='rock'){

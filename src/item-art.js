@@ -17,7 +17,7 @@ export function itemSvg(recipe,{background=true}={}){
     if(recipe.id.includes('wing'))shape+=`<path d="M22 25 5 15 14 47 26 42M70 25 87 15 78 47 66 42" fill="${light}" opacity=".75"/>`;
     if(recipe.id.includes('shell'))shape+=`<path d="M37 38 46 32 55 38 55 55 46 64 37 55Z" fill="${light}"/>`;
     if(recipe.id.includes('moonstone'))shape+=`<path d="M46 34 54 46 46 61 38 46Z" fill="#f4eaff"/>`;
-  }else if(['rock','rod','axe','club','bow','slingshot'].includes(recipe.type)){
+  }else if(['rock','rod','axe','club','bow','slingshot','sword','spear','warhammer'].includes(recipe.type)){
     shape=toolSvg(recipe,dark,light);
   }else if(recipe.type==='pickaxe'){
     shape=pickaxeSvg(recipe.tier,dark,light);

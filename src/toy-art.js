@@ -43,7 +43,7 @@ function sample(x,y,layer){
   const path=near(x,y,trails),stream=near(x,y,river),village=Math.hypot(x-9000,y-7000);
   const edge=smoothNoise(x+1900,y-750,95);
   const townPlaza=Math.max(...TOWNS.map(t=>clamp((370-Math.hypot(x-t.x,y-t.y)+(detail-.5)*52)/100)));
-  const dirt=clamp((65-path+(edge-.5)*22)/38),plaza=clamp((762-village+(detail-.5)*52)/95),soil=Math.max(dirt,plaza,townPlaza);
+  const dirt=clamp((65-path+(edge-.5)*22)/38),plaza=0,soil=Math.max(dirt,plaza,townPlaza);
   color=mix(color,[233+(detail-.5)*12,196+(detail-.5)*12,119+(detail-.5)*10],soil);
   const coast=oceanDistance(x,y);
   if(coast<240){const sand={tundra:[218,232,205],marsh:[198,202,143],badlands:[239,181,109],volcanic:[177,160,179],woodland:[224,207,141],heartlands:[239,211,147]}[biomeAt(x,y,'surface').id]||[239,211,147];color=mix(color,sand,clamp((240-coast)/130));}

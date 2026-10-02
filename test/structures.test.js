@@ -27,7 +27,7 @@ test('wood fuels cooking, cooked meat can be collected, and a pickaxe recovers a
   registry.remove(fire);assert.equal(registry.blocks(100,100,'surface'),false);
 });
 test('houses and lakes stay solid while ordinary ground remains walkable',()=>{
-  assert.equal(canWalk(8580,6590,'surface'),false);
+  assert.equal(canWalk(9950,7100,'surface'),false);
   assert.equal(canWalk(5210,11100,'surface'),false);
   assert.equal(canWalk(9000,7000,'surface'),true);
 });

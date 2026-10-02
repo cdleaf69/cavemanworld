@@ -1,39 +1,36 @@
 export const SLOT_SYMBOLS=[{id:'berry',name:'Berries',weight:35,payout:4},{id:'leaf',name:'Leaf',weight:28,payout:6},{id:'fish',name:'Fish',weight:20,payout:8},{id:'crystal',name:'Crystal',weight:12,payout:12},{id:'sun',name:'Sun',weight:5,payout:20}];
-export function handValue(cards){let value=0,aces=0;for(const card of cards){if(card.rank==='A'){value+=11;aces++;}else value+=['J','Q','K'].includes(card.rank)?10:Number(card.rank);}while(value>21&&aces-->0)value-=10;return value;}
-export function makeDeck(rng=Math.random){const deck=[];for(const suit of ['♠','♥','♦','♣'])for(const rank of ['A','2','3','4','5','6','7','8','9','10','J','Q','K'])deck.push({rank,suit});for(let i=deck.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}return deck;}
-
-// Session-only free play chips. A future server should validate bets and deal cards.
-export class CasinoSession {
-  constructor(rng=Math.random){this.rng=rng;this.balance=100;this.hand=null;this.lastSpin=null;}
-  get playing(){return this.hand?.status==='playing';}
-  wager(bet){if(this.playing)throw new Error('Finish your blackjack hand first.');if(![10,20,50].includes(bet))throw new Error('Choose a 10, 20, or 50 chip bet.');if(bet>this.balance)throw new Error('Not enough play chips.');this.balance-=bet;}
-  refill(){if(this.playing||this.balance>=10)return false;this.balance+=100;return true;}
-  spin(bet){
-    this.wager(bet);
-    const reels=Array.from({length:3},()=>{let roll=this.rng()*100;for(const symbol of SLOT_SYMBOLS){roll-=symbol.weight;if(roll<0)return symbol.id;}return 'sun';});
-    const counts=new Map();for(const reel of reels)counts.set(reel,(counts.get(reel)||0)+1);
-    const triple=reels.every(r=>r===reels[0]),pair=[...counts.values()].includes(2);
-    const multiplier=triple?SLOT_SYMBOLS.find(s=>s.id===reels[0]).payout:pair?1:0,payout=bet*multiplier;
-    this.balance+=payout;this.lastSpin={reels,bet,payout,multiplier};return this.lastSpin;
-  }
-  deal(bet){
-    this.wager(bet);const deck=makeDeck(this.rng);
-    const hand=this.hand={bet,deck,player:[deck.pop()],dealer:[deck.pop()],status:'playing',message:'Hit for a card, or stand.',payout:0};
-    hand.player.push(deck.pop());hand.dealer.push(deck.pop());
-    if(handValue(hand.player)===21||handValue(hand.dealer)===21){
-      const player21=handValue(hand.player)===21,dealer21=handValue(hand.dealer)===21;
-      this.settle(player21&&dealer21?bet:player21?bet*2.5:0,player21&&dealer21?'Both have blackjack · push.':player21?'Blackjack! Pays 3:2.':'Dealer blackjack.');
-    }
-    return hand;
-  }
-  hit(){if(!this.playing)return false;this.hand.player.push(this.hand.deck.pop());const value=handValue(this.hand.player);if(value>21)this.settle(0,'You busted.');else if(value===21)this.stand();return true;}
-  stand(){
-    if(!this.playing)return false;
-    while(handValue(this.hand.dealer)<17)this.hand.dealer.push(this.hand.deck.pop());
-    const player=handValue(this.hand.player),dealer=handValue(this.hand.dealer),bet=this.hand.bet;
-    if(dealer>21||player>dealer)this.settle(bet*2,dealer>21?'Dealer busted · you win!':'You beat the dealer!');
-    else if(player===dealer)this.settle(bet,'Same total · push.');
-    else this.settle(0,'Dealer wins this hand.');return true;
-  }
-  settle(payout,message){if(!this.playing)return;this.hand.status='finished';this.hand.payout=payout;this.hand.message=message;this.balance+=payout;}
+export const BLACKJACK_RULES='6 decks · dealer stands on soft 17 · blackjack 3:2 · double on any first two cards, including after split · split equal-value pairs to 4 hands · split aces get one card, no resplit · late surrender before splitting · insurance 2:1';
+const cardValue=c=>c.rank==='A'?11:['J','Q','K'].includes(c.rank)?10:Number(c.rank);
+export function handValue(cards){let value=cards.reduce((n,c)=>n+cardValue(c),0),aces=cards.filter(c=>c.rank==='A').length;while(value>21&&aces-->0)value-=10;return value;}
+export function makeDeck(rng=Math.random,count=1){const deck=[];for(let n=0;n<count;n++)for(const suit of ['♠','♥','♦','♣'])for(const rank of ['A','2','3','4','5','6','7','8','9','10','J','Q','K'])deck.push({rank,suit});for(let i=deck.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}return deck;}
+// Coins always belong to the shared inventory. The default wallet is for isolated tests.
+export class CasinoSession{
+ constructor(rng=Math.random,wallet={coins:0}){this.rng=rng;this.wallet=wallet;this.hand=null;this.poker=null;this.lastSpin=null;}
+ get balance(){return this.wallet.coins;} set balance(n){this.wallet.coins=n;}
+ get playing(){return ['playing','insurance'].includes(this.hand?.status);}
+ get busy(){return this.playing||this.poker?.status==='drawing';}
+ get active(){return this.hand?.hands[this.hand.active];}
+ wager(bet){if(this.busy)throw new Error('Finish the current card game first.');if(![10,20,50].includes(bet))throw new Error('Choose a 10, 20, or 50 coin bet.');this.pay(bet);}
+ pay(amount){if(amount>this.balance)throw new Error('Not enough coins. Sell resources at a general shop.');this.balance-=amount;}
+ spin(bet){this.wager(bet);const reels=Array.from({length:3},()=>{let roll=this.rng()*100;for(const s of SLOT_SYMBOLS){roll-=s.weight;if(roll<0)return s.id;}return 'sun';});const counts=new Map();for(const r of reels)counts.set(r,(counts.get(r)||0)+1);const multiplier=reels.every(r=>r===reels[0])?SLOT_SYMBOLS.find(s=>s.id===reels[0]).payout:[...counts.values()].includes(2)?1:0,payout=bet*multiplier;this.balance+=payout;return this.lastSpin={reels,bet,payout,multiplier};}
+ deal(bet){this.wager(bet);const deck=makeDeck(this.rng,6),player=[deck.pop()],dealer=[deck.pop()];player.push(deck.pop());dealer.push(deck.pop());this.hand={deck,bet,player,dealer,hands:[{cards:player,bet,status:'playing',split:false}],active:0,status:dealer[0].rank==='A'?'insurance':'playing',message:'Hit, stand, double, split, or surrender.',payout:0,insurance:0};if(this.hand.status==='insurance')this.hand.message='Dealer shows an ace. Take insurance or decline before playing.';else this.checkBlackjack();return this.hand;}
+ checkBlackjack(){const h=this.hand,p=handValue(h.player)===21,d=handValue(h.dealer)===21;if(d||p){this.settle(p&&d?h.bet:p?h.bet*2.5:0,p&&d?'Both blackjack · push.':p?'Blackjack · pays 3:2.':'Dealer blackjack.');}}
+ insurance(take){if(this.hand?.status!=='insurance')return false;const h=this.hand;if(take){this.pay(h.bet/2);h.insurance=h.bet/2;}h.status='playing';if(handValue(h.dealer)===21){const payout=h.insurance*3;this.balance+=payout;h.insurancePayout=payout;}this.checkBlackjack();if(this.playing)h.message='Dealer has no blackjack. Insurance lost; play your hand.';return true;}
+ get canDouble(){return this.hand?.status==='playing'&&this.active?.cards.length===2&&this.balance>=this.active.bet&&!this.active.splitAces;}
+ get canSplit(){const a=this.active;return this.hand?.status==='playing'&&a?.cards.length===2&&cardValue(a.cards[0])===cardValue(a.cards[1])&&this.hand.hands.length<4&&!a.splitAces&&this.balance>=a.bet;}
+ get canSurrender(){return this.hand?.status==='playing'&&this.hand.hands.length===1&&!this.active.split&&this.active.cards.length===2;}
+ hit(){if(this.hand?.status!=='playing')return false;this.active.cards.push(this.hand.deck.pop());if(handValue(this.active.cards)>=21){this.active.status=handValue(this.active.cards)>21?'bust':'stood';this.advance();}return true;}
+ stand(){if(this.hand?.status!=='playing')return false;this.active.status='stood';this.advance();return true;}
+ double(){if(!this.canDouble)return false;this.pay(this.active.bet);this.active.bet*=2;this.active.cards.push(this.hand.deck.pop());this.active.status=handValue(this.active.cards)>21?'bust':'stood';this.advance();return true;}
+ split(){if(!this.canSplit)return false;const a=this.active;this.pay(a.bet);const aces=a.cards[0].rank==='A';const next={cards:[a.cards.pop(),this.hand.deck.pop()],bet:a.bet,split:true,splitAces:aces,status:aces?'stood':'playing'};a.cards.push(this.hand.deck.pop());a.split=true;a.splitAces=aces;a.status=aces?'stood':'playing';this.hand.hands.splice(this.hand.active+1,0,next);if(aces)this.advance();else this.sync();return true;}
+ surrender(){if(!this.canSurrender)return false;this.active.status='surrendered';this.finish();return true;}
+ sync(){this.hand.player=this.active.cards;this.hand.message=`Hand ${this.hand.active+1} of ${this.hand.hands.length} · ${this.active.bet} coins wagered`;}
+ advance(){const next=this.hand.hands.findIndex(a=>a.status==='playing');if(next<0)this.finish();else{this.hand.active=next;this.sync();}}
+ finish(){const h=this.hand;if(h.hands.some(a=>a.status==='stood'))while(handValue(h.dealer)<17)h.dealer.push(h.deck.pop());const d=handValue(h.dealer);let total=0;const messages=[];for(const [i,a] of h.hands.entries()){const v=handValue(a.cards);a.payout=a.status==='surrendered'?a.bet/2:a.status==='bust'?0:d>21||v>d?a.bet*2:v===d?a.bet:0;total+=a.payout;messages.push(`Hand ${i+1}: ${a.status==='surrendered'?'surrender':a.payout===a.bet?'push':a.payout>0?'win':'loss'}`);}this.settle(total,messages.join(' · '));}
+ settle(payout,message){if(!this.playing)return;this.hand.status='finished';this.hand.payout=payout;this.hand.message=message;this.balance+=payout;}
+ dealPoker(bet){this.wager(bet);const deck=makeDeck(this.rng);return this.poker={bet,deck,cards:Array.from({length:5},()=>deck.pop()),status:'drawing',payout:0};}
+ drawPoker(held){if(this.poker?.status!=='drawing')return false;const p=this.poker;for(let i=0;i<5;i++)if(!held.includes(i))p.cards[i]=p.deck.pop();Object.assign(p,pokerResult(p.cards));p.payout=p.bet*p.multiplier;p.status='finished';this.balance+=p.payout;return p;}
+ roulette(bet,selection){if(!['red','black','even','odd','0'].includes(selection))throw new Error('Choose a roulette bet.');this.wager(bet);const number=Math.floor(this.rng()*37),red=RED_NUMBERS.includes(number);const win=selection==='0'?number===0:number!==0&&(selection==='red'?red:selection==='black'?!red:selection==='even'?number%2===0:number%2===1);const payout=win?bet*(selection==='0'?36:2):0;this.balance+=payout;return {number,color:number===0?'green':red?'red':'black',payout};}
 }
+export const RED_NUMBERS=[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+export function pokerResult(cards){const ranks=cards.map(c=>c.rank==='A'?14:c.rank==='K'?13:c.rank==='Q'?12:c.rank==='J'?11:Number(c.rank)).sort((a,b)=>a-b);const counts=new Map();for(const r of ranks)counts.set(r,(counts.get(r)||0)+1);const groups=[...counts.values()].sort((a,b)=>b-a),flush=cards.every(c=>c.suit===cards[0].suit),straight=counts.size===5&&(ranks[4]-ranks[0]===4||ranks.join(',')==='2,3,4,5,14');const [name,multiplier]=flush&&straight?(ranks[0]===10?['Royal flush',800]:['Straight flush',50]):groups[0]===4?['Four of a kind',25]:groups[0]===3&&groups[1]===2?['Full house',9]:flush?['Flush',6]:straight?['Straight',4]:groups[0]===3?['Three of a kind',3]:groups[0]===2&&groups[1]===2?['Two pair',2]:[...counts].some(([r,n])=>r>=11&&n===2)?['Jacks or better',1]:['No paying hand',0];return {name,multiplier};}

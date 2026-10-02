@@ -15,3 +15,5 @@
 .table-rule{font-size:10px;color:#c9d6ae;border-top:1px solid #8fa981;padding:8px 0;margin:3px 0}
 .casino-actions{display:flex;gap:10px;flex-wrap:wrap}.casino-actions .bag-action{flex:1;min-width:100px}.casino-modal-card button:disabled{opacity:.5;cursor:default}.casino-modal-card .bag-action{padding:9px 15px}.casino-modal-card p{margin:12px 0 0}
 @media(max-width:560px){.slot-reel{height:88px}.slot-reel svg{width:60px;height:60px}.slot-rules{gap:8px}.playing-card{width:51px;height:78px}.card-hand{min-height:90px;gap:5px}.casino-wallet strong{font-size:14px}.blackjack-table{padding:10px}}
+
+.casino-tabs,.casino-actions{flex-wrap:wrap;gap:8px}.table-rule{line-height:1.6}.split-hand{padding:8px;border:2px solid transparent}.active-hand{border-color:#f2cf81}.poker-card{background:transparent;border:2px solid transparent;color:inherit;cursor:pointer;padding:5px}.poker-card.held{border-color:#e5c478}.coin-heading{display:flex;justify-content:space-between;color:#f0ce7c;padding-top:10px}.card-hand{flex-wrap:wrap}#pokerView p,#rouletteView p{line-height:1.6}

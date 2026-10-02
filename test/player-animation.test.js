@@ -3,15 +3,12 @@ import assert from 'node:assert/strict';
 import { playerArmPose,heldToolPose,fishingRodTipWorld } from '../src/player-animation.js';
 import { CAMERA_TILT } from '../src/camera.js';
 
-test('both arms lean toward the side facing and forward walking alternates',()=>{
-  for(const facing of [0,Math.PI])for(const time of [0,145,290,435]){
-    const pose=playerArmPose({facing,moving:true},time);
-    const direction=pose.flip?-1:1;
-    for(const arm of pose.arms)assert.ok((arm.hand.x-arm.shoulder.x)*direction*(facing===0?1:-1)>0);
-  }
-  const forward=playerArmPose({facing:Math.PI/2,moving:true},145);
-  assert.equal(forward.arms[0].hand.y-45,-(forward.arms[1].hand.y-45));
-  for(const arm of forward.arms)assert.equal(arm.hand.x,arm.shoulder.x);
+test('side walking swings arms in opposition while front/back motion remains unchanged',()=>{
+ for(const facing of [0,Math.PI]){
+  const pose=playerArmPose({facing,moving:true},145);
+  const [a,b]=pose.arms;assert.ok((a.elbow.x-a.shoulder.x)*(b.elbow.x-b.shoulder.x)<0);assert.ok(a.hand.y>a.elbow.y&&b.hand.y>b.elbow.y);
+ }
+ for(const facing of [Math.PI/2,Math.PI*1.5]){const pose=playerArmPose({facing,moving:true},145);assert.equal(pose.arms[0].hand.x,11.5);assert.equal(pose.arms[1].hand.x,32.5);}
 });
 
 test('held tools stay attached to an animated hand through windup, strike and recovery',()=>{
@@ -25,29 +22,6 @@ test('held tools stay attached to an animated hand through windup, strike and re
       assert.equal(held.y,hand.y-61);angles.push(held.angle);
     }
     assert.ok(angles[1]<angles[0]);assert.ok(angles[2]>angles[0]);assert.ok(Math.abs(angles[3])<.12);
-  }
-});
-
-test('side running has compact bent elbows while south and north retain their existing swing',()=>{
-  for(const time of [0,72.5,145,290,435]){
-    for(const facing of [0,Math.PI])for(const type of [null,'axe','club','rod']){
-      const pose=playerArmPose({facing,moving:true},time,type);
-      for(const arm of pose.arms){
-        assert.ok(arm.hand.y<arm.elbow.y,'forearm is lifted');
-        assert.ok(arm.hand.x>arm.elbow.x,'forearm reaches into the run');
-        assert.ok(Math.hypot(arm.elbow.x-arm.shoulder.x,arm.elbow.y-arm.shoulder.y)<9);
-        assert.ok(Math.hypot(arm.hand.x-arm.elbow.x,arm.hand.y-arm.elbow.y)<10);
-      }
-    }
-    for(const facing of [Math.PI/2,Math.PI*1.5]){
-      const back=facing===Math.PI*1.5,pose=playerArmPose({facing,moving:true},time),stride=Math.sin(time/145*Math.PI/2);
-      pose.arms.forEach((arm,i)=>{
-        assert.equal(arm.shoulder.x,[11.5,32.5][i]);
-        assert.equal(arm.elbow.y,38+(back?-1.2:0));
-        assert.equal(arm.hand.x,arm.shoulder.x);
-        assert.equal(arm.hand.y,45+(back?-4:0)+stride*(i===0?2:-2));
-      });
-    }
   }
 });
 

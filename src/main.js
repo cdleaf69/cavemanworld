@@ -1,9 +1,10 @@
+import {equipmentRecipe,bowForm} from './bow-upgrades.js';
 import { grantBetaItem } from './beta.js';
-import { LAYERS, LAYER_NAMES, portalDestination } from './world.js';
+import { LAYERS, LAYER_NAMES, portalDestination,portalDirection,randomSurfaceSpawn } from './world.js';
 import { SURFACE, CAVES, DEEP_CAVES, PORTALS, DESCENTS, LAKES, PLAYER_RADIUS, canWalk, nearestPortal, nearbyPlace, biomeAt, lakeAt, waterAt } from './world.js';
 import { SpawnZoneManager, SPAWN_TYPES, RESOURCE_TYPES, BIOME_IDS } from './spawn-zones.js';
 import { SpawnableRegistry } from './spawnables.js';
-import { populateWorld } from './spawner.js';
+import { populateWorld,populateSpawnSupplies } from './spawner.js';
 import { Inventory, RECIPES, RESOURCES } from './crafting.js';
 import { PixelWorldRenderer as WorldRenderer } from './pixel-renderer.js';
 import { worldBridge } from './network-hooks.js';
@@ -47,9 +48,9 @@ const startLayer=Object.keys(LAYERS).includes(params.get('layer'))?params.get('l
 const startPortal=[...PORTALS,...DESCENTS,...BUILDING_PORTALS].find(p=>p.id===params.get('start'));
 const startLake=LAKES.find(l=>l.id===params.get('start'));
 const startBridge=startLayer==='surface'&&params.get('start')==='mire-crossing'?{x:8200,y:7850}:null;
-const initial=startPortal?.[startLayer]||(startLayer==='surface'&&startLake?{x:startLake.x+startLake.rx+85,y:startLake.y}:null)||startBridge||LAYERS[startLayer]?.spawn||(startLayer==='deep'?DEEP_CAVES.spawn:startLayer==='cave'?{x:3950,y:2700}:SURFACE.spawn);
+const initial=startPortal?.[startLayer]||(startLayer==='surface'&&startLake?{x:startLake.x+startLake.rx+85,y:startLake.y}:null)||startBridge||(startLayer==='surface'?randomSurfaceSpawn():null)||LAYERS[startLayer]?.spawn||(startLayer==='deep'?DEEP_CAVES.spawn:startLayer==='cave'?{x:3950,y:2700}:SURFACE.spawn);
 const player={x:initial.x,y:initial.y,facing:Math.PI*1.5,moving:false,jumpHeight:0,jumpActive:false};
-player.layer=startLayer;
+player.layer=startLayer;if(startLayer==='surface'&&!startPortal&&!startLake)populateSpawnSupplies(spawnables,player);
 const camera={x:player.x,y:player.y,lookX:0,lookY:0};
 let layer=startLayer,zoom=.68,targetZoom=.68,showZones=false,selectedZone=null,dragVertex=-1;
 let lastFrame=performance.now(),lastHud=0,lastMap=0,lastPosition=0,lastTransition=0,lastPublishedFacing=player.facing;
@@ -60,7 +61,7 @@ let selectedInventoryItem=null;
 let pointerInventoryDrag=null;
 const keys=new Set();
 const mouse={x:renderer.width/2,y:renderer.height/2};
-const casinoUI=new CasinoUI({openModal:()=>setModal('casinoModal',true),onInteraction:detail=>worldBridge.publishInteraction({...detail,x:player.x,y:player.y,layer})});
+const casinoUI=new CasinoUI({inventory,openModal:()=>setModal('casinoModal',true),onInteraction:detail=>worldBridge.publishInteraction({...detail,x:player.x,y:player.y,layer})});
 const townUI=new TownUI({inventory,openModal:()=>setModal('townModal',true),onChange:detail=>{renderInventory();renderCrafting();renderHotbar();updateHud();worldBridge.publishInteraction({...detail,x:player.x,y:player.y,layer});}});
 function interiorActivity(){return buildingForLayer(layer)?.type!=='casino'&&buildingForLayer(layer)&&Math.hypot(player.x-INTERIOR_ACTIVITY.x,player.y-INTERIOR_ACTIVITY.y)<180;}
 
@@ -84,16 +85,17 @@ function eatMeat(){eatFood(inventory.resources.cookedMeat>0?'cookedMeat':'cooked
 function currentEffects(){const effect=armorEffects(inventory);vitals.setMaxHealth(100*effect.stats.health);return effect;}
 function attack(aimFacing=player.facing){
   const now=performance.now();if(modalOpen()||now<nextSwingAt)return;
-  nextSwingAt=now+420;player.swingUntil=now+250;
-  const target=attackTarget(creatures.nearby(player.x,player.y,layer,170),{...player,facing:aimFacing});
+  nextSwingAt=now+(inventory.equippedTool?.cooldown||420);player.swingUntil=now+250;
+  const target=attackTarget(creatures.nearby(player.x,player.y,layer,(inventory.equippedTool?.range||120)+50),{...player,facing:aimFacing},inventory.equippedTool?.range||120);
   if(!target)return;
   const damage=scaledWeaponDamage(inventory.equippedTool,currentEffects().stats.power),result=target.hit(damage,now);
   if(!result.ok)return;
   rewardHit(target,result,damage,now);
+  if(!result.dead){const shove=inventory.equippedTool?.knockback||0,x=target.x+Math.cos(aimFacing)*shove,y=target.y+Math.sin(aimFacing)*shove;if(canWalk(x,y,layer,target.radius)){target.x=x;target.y=y;}}
 }
 function rewardHit(target,result,damage,now){
   if(!result.ok)return;
-  if(result.dead){const coins=layer==='core'?18:layer==='abyss'?12:layer==='deep'?8:layer==='cave'?4:1;inventory.coins+=coins;inventory.progression.gain(layer==='core'?90:layer==='abyss'?65:layer==='deep'?45:25);drops.spawn(result.loot,target.x,target.y,layer,now);showToast(`${target.name} defeated · +${coins} coins · loot dropped nearby (E)`);}
+  if(result.dead){inventory.progression.gain(layer==='core'?90:layer==='abyss'?65:layer==='deep'?45:25);drops.spawn(result.loot,target.x,target.y,layer,now);showToast(`${target.name} defeated · loot dropped nearby (E)`);}
   else showToast(`${target.name} · ${target.health}/${target.maxHealth} health`,850);
   worldBridge.publishInteraction({kind:'attack-creature',targetId:target.id,damage,x:player.x,y:player.y,layer});
 }
@@ -102,7 +104,7 @@ function shoot(point){
  if(now<nextSwingAt||player.swimming)return;
  const ammo=tool.type==='bow'?'arrows':'stone';
  if(!inventory.consume(ammo,1)){showToast(tool.type==='bow'?'Buy arrows from a blacksmith first':'Pick up stones for slingshot ammunition');return;}
- nextSwingAt=now+(tool.type==='bow'?550:420);player.swingUntil=now+250;
+ nextSwingAt=now+(tool.type==='bow'?bowForm(tool).cooldown:420);player.swingUntil=now+250;
  const origin=rangedWeaponOrigin(player,now,tool.type);
  projectiles.shoot({...origin,point,damage:scaledWeaponDamage(tool,currentEffects().stats.power),layer,type:tool.type},now);
  renderInventory();renderHotbar();worldBridge.publishInteraction({kind:'fire-projectile',type:tool.type,x:origin.x,y:origin.y,targetX:point.x,targetY:point.y,layer});
@@ -124,7 +126,7 @@ function renderHotbar(){
   hotbar.slots.forEach((slot,index)=>{
     const button=document.createElement('button');button.className=`hotbar-slot ${index===hotbar.selected?'selected':''}`;button.type='button';
     const number=document.createElement('span');number.className='hotbar-number';number.textContent=String(index+1);button.append(number);
-    if(slot){const recipe=RECIPES.find(r=>r.id===slot.id);if(recipe)button.append(itemImage(recipe));else{const icon=document.createElement('span');icon.className='food-icon';icon.textContent=slot.id==='cookedFish'?'🐟':'🍖';button.append(icon);}const label=document.createElement('small');label.textContent=recipe?.name||resourceName(slot.id);button.append(label);if(slot.kind==='structure'||slot.kind==='resource'){const count=document.createElement('b');count.textContent=slot.kind==='structure'?inventory.structures[slot.id]:inventory.resources[slot.id];button.append(count);}}
+    if(slot){const recipe=equipmentRecipe(RECIPES.find(r=>r.id===slot.id),inventory.owned.get(slot.id));if(recipe)button.append(itemImage(recipe));else{const icon=document.createElement('span');icon.className='food-icon';icon.textContent=slot.id==='cookedFish'?'🐟':'🍖';button.append(icon);}const label=document.createElement('small');label.textContent=recipe?.name||resourceName(slot.id);button.append(label);if(slot.kind==='structure'||slot.kind==='resource'){const count=document.createElement('b');count.textContent=slot.kind==='structure'?inventory.structures[slot.id]:inventory.resources[slot.id];button.append(count);}}
     activate(button,()=>{if(index===hotbar.selected&&['cookedMeat','cookedFish'].includes(slot?.id))eatFood(slot.id);else selectHotbar(index);});host.append(button);
   });
   renderInventoryHotbar();
@@ -180,7 +182,7 @@ function renderInventoryHotbar(){
     cell.dataset.slot=String(index);
     cell.tabIndex=0;cell.setAttribute('role','button');cell.setAttribute('aria-label',`Hotbar slot ${index+1}${slot?`: ${slot.kind==='resource'?resourceName(slot.id):itemName(slot.id)}`:': empty'}`);
     number.className='hotbar-number';number.textContent=String(index+1);cell.append(number);
-    if(slot){const recipe=RECIPES.find(r=>r.id===slot.id);if(recipe)cell.append(itemImage(recipe));else {const icon=document.createElement('span');icon.className='food-icon';icon.textContent=slot.id==='cookedFish'?'🐟':'🍖';cell.append(icon);}label.textContent=recipe?.name||resourceName(slot.id);cell.append(label);
+    if(slot){const recipe=equipmentRecipe(RECIPES.find(r=>r.id===slot.id),inventory.owned.get(slot.id));if(recipe)cell.append(itemImage(recipe));else {const icon=document.createElement('span');icon.className='food-icon';icon.textContent=slot.id==='cookedFish'?'🐟':'🍖';cell.append(icon);}label.textContent=recipe?.name||resourceName(slot.id);cell.append(label);
       inventoryDragSource(cell,{kind:slot.kind,id:slot.id,fromIndex:index});
       const clear=document.createElement('button');clear.type='button';clear.className='inventory-slot-clear';clear.textContent='×';clear.setAttribute('aria-label',`Clear hotbar slot ${index+1}`);
       clear.addEventListener('click',event=>{event.stopPropagation();hotbar.clear(index);selectHotbar(hotbar.selected);});cell.append(clear);
@@ -305,7 +307,7 @@ activate($('zoneClose'),()=>setZoneOverlay(false));
 document.querySelectorAll('[data-close]').forEach(b=>activate(b,()=>setModal(b.dataset.close,false)));
 document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)setModal(m.id,false);}));
 
-function itemName(id){return RECIPES.find(r=>r.id===id)?.name||'None';}
+function itemName(id){const item=inventory.owned.get(id);return item?.type==='bow'?bowForm(item).name:RECIPES.find(r=>r.id===id)?.name||'None';}
 function renderInventory(){
   $('inventoryCoins').textContent=`${inventory.coins} coins`;
   const effect=currentEffects();
@@ -335,7 +337,7 @@ function renderInventory(){
   const weapons=$('ownedWeapons'),armor=$('ownedArmor');weapons.replaceChildren();armor.replaceChildren();
   let weaponCount=0,armorCount=0;
   for(const [id,item] of inventory.owned){
-    const recipe=RECIPES.find(r=>r.id===id),equipped=inventory.equippedTool?.id===id||inventory.equippedGear?.id===id;
+    const recipe=equipmentRecipe(RECIPES.find(r=>r.id===id),item),equipped=inventory.equippedTool?.id===id||inventory.equippedGear?.id===id;
     const card=document.createElement('div');card.className=`recipe-card owned ${equipped?'equipped':''}`;
     const info=document.createElement('div'),title=document.createElement('h3'),detail=document.createElement('p'),button=document.createElement('button');
     title.textContent=recipe.name;detail.textContent=`${recipe.tier} ${recipe.category==='gear'?'armor':recipe.type} · ${recipe.category==='gear'?`${item.defense} damage blocked · +12% max health · ${ARMOR_PERKS[id]?`${ARMOR_PERKS[id].stat} ${perkPercent(ARMOR_PERKS[id].base)}`:''}`:`${item.damage} damage${item.upgradeLevel?` · ${item.upgradeQuality} +${Math.round(item.upgradeBonus*100)}% (${item.upgradeLevel}/3)`:''}`} · ${equipped?'equipped':'in bag'}`;
@@ -447,7 +449,12 @@ canvas.addEventListener('pointerdown',event=>{
     if(['bow','slingshot'].includes(inventory.equippedTool?.type)){shoot(p);return;}
     if(layer==='surface'){const b=TOWN_BUILDINGS.find(b=>Math.abs(p.x-b.x)<210&&Math.abs(p.y-b.y)<220);if(b){if(nearestPortal(player.x,player.y,layer)?.id===b.id)transition();else showToast(`Walk to the ${b.sign.toLowerCase()} entrance`);return;}}
     const fire=structures.at(p.x,p.y,layer);if(fire){if(inventory.equippedTool?.type==='pickaxe')mineCampfire(fire);else if(Math.hypot(fire.x-player.x,fire.y-player.y)<fire.radius+145)openFire(fire);else showToast('Move closer to the campfire');return;}
-    const node=spawnables.at(p.x,p.y,layer);if(node){gather(node);return;}
+    const clickedMob=creatures.nearby(p.x,p.y,layer,65).find(c=>Math.hypot(c.x-p.x,c.y-p.y)<c.radius+50);
+    if(clickedMob){attack(aimFacing);return;}
+    const node=spawnables.at(p.x,p.y,layer);
+    const meleeWeapon=['sword','spear','warhammer','club','rock'].includes(inventory.equippedTool?.type);
+    if(meleeWeapon&&attackTarget(creatures.nearby(player.x,player.y,layer,(inventory.equippedTool?.range||120)+50),{...player,facing:aimFacing},inventory.equippedTool?.range||120)){attack(aimFacing);return;}
+    if(node){gather(node);return;}
     if(hotbar.current?.kind==='structure'&&hotbar.current.id==='campfire'){placeCampfire(p);return;}
     if(fishing.active&&Math.hypot(p.x-fishing.castPoint.x,p.y-fishing.castPoint.y)<65){finishFishing();return;}
     if(lakeAt(p.x,p.y)){const result=fishing.cast(player,inventory.equippedTool,p,performance.now());showToast(result.message);if(result.ok){player.swingUntil=performance.now()+250;worldBridge.publishInteraction({kind:'cast-line',targetId:fishing.lake.id,x:p.x,y:p.y,layer});}return;}
@@ -491,7 +498,7 @@ function update(dt,now){
     const hurt=(damage,source)=>{
       const result=vitals.takeDamage(damage,inventory.equippedGear,now,currentEffects().stats.defense);
       if(result.damage){showToast(`${source} hit you · −${result.damage} health`,900);updateHud();}
-      if(result.dead){vitals.respawn(now);fishing.cancel();layer='surface';player.layer=layer;player.swimming=false;player.jumpActive=false;player.jumpHeight=0;player.x=SURFACE.spawn.x;player.y=SURFACE.spawn.y;camera.lookX=0;camera.lookY=0;camera.x=player.x;camera.y=player.y;projectiles.clear();showToast('You fell in the caves and returned to the village',3500);worldBridge.publishInteraction({kind:'respawn',x:player.x,y:player.y,layer});}
+      if(result.dead){vitals.respawn(now);fishing.cancel();layer='surface';player.layer=layer;player.swimming=false;player.jumpActive=false;player.jumpHeight=0;Object.assign(player,randomSurfaceSpawn());camera.lookX=0;camera.lookY=0;camera.x=player.x;camera.y=player.y;projectiles.clear();showToast('You fell in the caves and returned to a safe town outskirts',3500);worldBridge.publishInteraction({kind:'respawn',x:player.x,y:player.y,layer});}
       return result.dead;
     };
     let defeated=false;
@@ -519,6 +526,7 @@ function update(dt,now){
   if(now-lastMap>700){renderer.drawOverview($('minimap'),layer,player,zones,showZones);lastMap=now;}
 }
 function updateHud(){
+  $('coinBalance').textContent=inventory.coins.toLocaleString();
   const progress=inventory.progression,maxLevel=progress.level>=20;
   $('levelStatus').textContent=`LEVEL ${progress.level}`;
   $('xpText').textContent=maxLevel?'MAX LEVEL':`${progress.xp} / ${progress.required} XP`;
@@ -544,8 +552,8 @@ function updateHud(){
   $('actionKey').textContent=targetNode&&!['bush','ground'].includes(targetNode.kind)?'CLICK':'E';
   if(fishing.active){$('actionKey').textContent='E';$('portalText').textContent=fishing.ready?'Fish biting · reel in now':'Fishing · wait for a bite';}
   else if(targetDrop)$('portalText').textContent=`Pick up ${targetDrop.amount} ${targetDrop.resource}`;
-  else if(p)$('portalText').textContent=BUILDING_PORTALS.includes(p)?`${layer==='surface'?'Enter':'Leave'} ${p.name}`:`Travel to ${LAYER_NAMES[portalDestination(p,layer)]} · ${p.name}`;
-  else if(activity)$('portalText').textContent=activity.id==='slots'?'Play slots · free play chips':'Play blackjack against the dealer';
+  else if(p)$('portalText').textContent=BUILDING_PORTALS.includes(p)?`${layer==='surface'?'Enter':'Leave'} ${p.name}`:`Travel to ${LAYER_NAMES[portalDestination(p,layer)]} · ${p.name} (${portalDirection(p,layer)})`;
+  else if(activity)$('portalText').textContent=activity.id==='slots'?'Play casino games · coins':'Play blackjack against the dealer';
   else if(townActivity)$('portalText').textContent=({shop:'Trade resources · general shop',smith:'Upgrade tools · blacksmith',house:'Open supply chest · refills every 2 minutes'})[buildingForLayer(layer).type];
   else if(nearFire)$('portalText').textContent='Open campfire · cook meat or fish';
   else if(targetNode){const n=targetNode;$('portalText').textContent=n.kind==='bush'?'Forage Bush · sticks + leaves':n.kind==='ground'?`Pick up ${n.label}`:`${n.kind==='tree'?'Chop':'Mine'} ${n.label} · ${n.quantity}/${n.maxQuantity} · ${n.kind==='tree'?'axe':`${n.rarity?`${n.rarity} · `:''}${['obsidian','moonstone'].includes(n.resource)?'iron pickaxe':'pickaxe'}`} needed`;}

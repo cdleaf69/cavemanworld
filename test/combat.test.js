@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Creature, CreatureRegistry, populateCreatures } from '../src/creatures.js';
 import { PlayerVitals, attackTarget, weaponDamage } from '../src/combat.js';
 import { Inventory } from '../src/crafting.js';
-import { canWalk } from '../src/world.js';
+import { canWalk,PORTALS } from '../src/world.js';
 import { LootRegistry, RockProjectile } from '../src/combat-objects.js';
 
 test('animals drop useful resources, and meat heals after injury',()=>{
@@ -68,11 +68,11 @@ test('cave mobs notice a distant player immediately after leaving an entrance',(
     assert.ok(mob.x>start,`${kind} did not start pursuing at 750 units`);
     assert.equal(mob.facing,0);
   }
-  const nearEntrance=new Creature({id:'aware-entrance',kind:'caveCrawler',x:1150,y:1050,layer:'cave'});
+  const p=PORTALS[0].cave;const nearEntrance=new Creature({id:'aware-entrance',kind:'caveCrawler',x:p.x+300,y:p.y,layer:'cave'});
   const start=nearEntrance.x;
-  nearEntrance.update(.1,1000,{x:850,y:1050,layer:'cave'},()=>true);
+  nearEntrance.update(.1,1000,{x:p.x,y:p.y,layer:'cave'},()=>true);
   assert.ok(Math.abs(nearEntrance.x-start)<=nearEntrance.speed*.028+.001);
-  nearEntrance.update(.1,1100,{x:1010,y:1050,layer:'cave'},()=>true);
+  nearEntrance.update(.1,1100,{x:p.x+160,y:p.y,layer:'cave'},()=>true);
   assert.ok(nearEntrance.x<start);
 });
 

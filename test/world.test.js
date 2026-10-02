@@ -16,8 +16,8 @@ test('river crossings stay short and connected to their paths',()=>{
 test('surface uses the requested faster walking and sprint speeds', () => {
   assert.equal(WALK_SPEED,157.5);
   assert.equal(SURFACE.width*SURFACE.height,36000*21000*2.5);
-  assert.equal(CAVES.width*CAVES.height,8000*5400*3);
-  assert.equal(DEEP_CAVES.width*DEEP_CAVES.height,8800*6000*3);
+  assert.equal(CAVES.width*CAVES.height,SURFACE.width*SURFACE.height);
+  assert.equal(DEEP_CAVES.width*DEEP_CAVES.height,SURFACE.width*SURFACE.height);
   assert.equal(SPRINT_MULTIPLIER,2.5);
   assert.equal(canWalk(SURFACE.spawn.x,SURFACE.spawn.y,'surface'),true);
   assert.equal(canWalk(-1,100,'surface'),false);
@@ -41,7 +41,7 @@ test('cave paths and chambers are walkable, cave walls block movement', () => {
   for(const p of PORTALS){assert.ok(canWalk(p.cave.x,p.cave.y,'cave'),p.id);assert.equal(nearestPortal(p.cave.x,p.cave.y,'cave')?.id,p.id);}
   assert.equal(canWalk(4000,100,'cave'),false);
   assert.equal(canWalk(CAVES.width+1,300,'cave'),false);
-  assert.equal(canWalk(HUTS[0].x,HUTS[0].y,'surface'),false);
+  assert.equal(HUTS.length,0);
   assert.equal(canWalk(7330,4250,'surface'),false); // river away from a marked crossing
 });
 

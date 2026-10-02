@@ -1,3 +1,4 @@
+import {equipmentRecipe} from './bow-upgrades.js';
 import { ToyArt } from './toy-art.js';
 import { grain } from './pixel-art.js';
 import { MATERIAL_COLORS } from './materials.js';
@@ -95,6 +96,21 @@ export class AdventureArt extends ToyArt {
     return {image,ax:tree?56:32,ay:tree?138:55};
   }
   creature(ctx,m,time){
+    if(['wolf','caveSpider','rootStalker','frostSerpent','duneBurrower','bogSpitter','obsidianSentinel','crystalMoth','voidReaper','magmaBrute'].includes(m.kind)){
+      const facing=Math.cos(m.facing);if(facing<-.4)m.visualFlip=true;else if(facing>.4)m.visualFlip=false;
+      const sprite=this.sprite(`species:${m.kind}:${m.shiny}`,()=>{
+        const image=canvas(96,88),c=image.getContext('2d'),color=m.shiny?'#c39bec':({wolf:'#8396a5',caveSpider:'#856174',rootStalker:'#789856',frostSerpent:'#8bc8db',duneBurrower:'#d49d65',bogSpitter:'#86a574',obsidianSentinel:'#66567f',crystalMoth:'#a5c5e4',voidReaper:'#796699',magmaBrute:'#b66c4e'})[m.kind];
+        if(m.kind==='wolf'){ellipse(c,43,47,28,15,color);ellipse(c,74,35,13,12,color);rect(c,64,16,6,16,color);rect(c,79,18,6,15,color);rect(c,82,35,11,7,'#d4d8d4');for(const x of [22,36,55,68])rect(c,x,56,6,19,'#596777');rect(c,4,42,20,6,color);rect(c,77,30,4,4,'#f4d98e');}
+        else if(m.kind==='caveSpider'){for(let i=0;i<4;i++)for(const sign of [-1,1]){const x=48+sign*20,y=37+i*7;c.strokeStyle='#5f485b';c.lineWidth=5;c.beginPath();c.moveTo(x,y);c.lineTo(x+sign*16,y-8);c.lineTo(x+sign*24,y+12);c.stroke();}ellipse(c,47,48,25,20,color);ellipse(c,70,42,13,12,color);for(let i=0;i<4;i++)rect(c,65+i*5,37,3,3,'#eaad7a');rect(c,71,50,3,10,'#e9dab0');rect(c,80,48,3,10,'#e9dab0');}
+        else if(m.kind==='frostSerpent'){for(let i=0;i<9;i++)ellipse(c,10+i*8,53+Math.sin(i*.7)*11,9,7,color);ellipse(c,76,39,14,10,color);rect(c,81,34,4,4,'#324f68');rect(c,88,43,8,2,'#e49ca1');for(let i=0;i<5;i++)rect(c,24+i*10,37+Math.sin(i)*6,3,6,'#d8edf0');}
+        else if(m.kind==='crystalMoth'){ellipse(c,24,34,21,27,color);ellipse(c,72,34,21,27,color);ellipse(c,24,61,15,14,'#796baf');ellipse(c,72,61,15,14,'#796baf');rect(c,43,23,10,49,'#596274');rect(c,42,17,4,10,'#e8dfbc');rect(c,52,17,4,10,'#e8dfbc');for(const x of [18,66])rect(c,x,28,12,15,'#e5e3fa');}
+        else if(m.kind==='bogSpitter'){ellipse(c,44,53,32,18,color);ellipse(c,67,40,20,17,color);for(const x of [54,74]){ellipse(c,x,26,7,7,'#b8d098');rect(c,x,24,3,4,'#364d50');}rect(c,15,65,18,9,'#526f55');rect(c,60,64,22,9,'#526f55');rect(c,70,49,21,5,'#d9ba82');}
+        else if(m.kind==='duneBurrower'){ellipse(c,45,53,34,20,color);for(let i=0;i<6;i++)rect(c,18+i*10,32,5,30,'#8b6956');ellipse(c,77,44,14,13,color);rect(c,84,41,4,3,'#eddd9e');rect(c,76,51,4,12,'#ead2a0');}
+        else if(m.kind==='voidReaper'){for(let i=0;i<8;i++)rect(c,22+i*7,38+i%3*6,7,35-i%2*9,color);ellipse(c,48,23,18,19,color);rect(c,38,24,5,4,'#d2f8ec');rect(c,54,24,5,4,'#d2f8ec');rect(c,75,12,4,60,'#bda485');c.strokeStyle='#d6dbe1';c.lineWidth=6;c.beginPath();c.arc(72,30,21,Math.PI,Math.PI*1.75);c.stroke();}
+        else{const root=m.kind==='rootStalker';rect(c,20,32,56,34,color);rect(c,26,9,42,30,color);rect(c,11,35,12,34,color);rect(c,76,35,12,34,color);rect(c,26,65,14,17,color);rect(c,55,65,14,17,color);rect(c,34,23,7,5,root?'#e4d591':'#ffc77a');rect(c,53,23,7,5,root?'#e4d591':'#ffc77a');for(let i=0;i<4;i++)rect(c,28+i*11,42,4,20,root?'#aec07a':m.kind==='magmaBrute'?'#f2a263':'#a591b6');if(root){for(let i=0;i<5;i++)ellipse(c,20+i*13,8,12,7,'#4f8455');}}
+        return {image,ax:48,ay:78};
+      });this.shadow(ctx,m.x,m.y,m.radius*.85);this.draw(ctx,sprite,m.x,m.y,1.55,1,m.visualFlip===true);return;
+    }
     if(!['fox','boar','tortoise','caveSlime','crystalBeetle','emberGolem','snowHare','marshCrane','sandLizard','frostWisp','mireLeech','ashMite'].includes(m.kind))return super.creature(ctx,m,time);
     const facing=Math.cos(m.facing);if(facing<-.4)m.visualFlip=true;else if(facing>.4)m.visualFlip=false;
     const sprite=this.sprite(`wildlife:${m.kind}:${m.shiny}`,()=>{
@@ -152,6 +168,12 @@ export class AdventureArt extends ToyArt {
       const image=canvas(44,66),c=image.getContext('2d'),skin='#e4ad80',skinLight='#f2c495',skinShade='#c68c65',shirt=MATERIAL_COLORS[armor]||({leaf:'#71ae65',wood:'#b78858',iron:'#9bbec9',stone:'#9caeb0',copper:'#d7966b',quartz:'#a8d9dc',amber:'#ddb865',obsidian:'#9a81b6',moonstone:'#cbb3e0'}[armor])||'#bd8056';
       // Small stepped contours and broad color planes keep the figure readable at game zoom.
       for(const [x,stride] of [[side?16:14,step],[25,-step]]){
+        if(side){
+          const leg=stride*6,kneeX=x+leg*.5,footX=x+leg;
+          for(let row=0;row<8;row++)rect(c,x+leg*.5*row/8,47+row,6,1,'#626566');
+          for(let row=0;row<7;row++)rect(c,kneeX+leg*.5*row/7,54+row-Math.max(0,-stride)*2,5,1,'#7c7f76');
+          rect(c,footX-1,59-Math.max(0,-stride)*2,10,3,'#354951');continue;
+        }
         rect(c,x,45,6,11,'#626566');rect(c,x+1,49,3,7,'#7c7f76');
         rect(c,x+1,55+stride,5,4,'#545d61');
         rect(c,x-1,58+stride,9,3,'#354951');rect(c,x-2,60+stride,10,1,'#2e4148');
@@ -243,11 +265,11 @@ export class AdventureArt extends ToyArt {
     ctx.restore();
   }
   drawHeldTool(ctx,p,tool,time,fishing,pose){
-      const recipe=toolRecipes.get(tool.id);
+      const recipe=equipmentRecipe(toolRecipes.get(tool.id),tool);
       if(!recipe)return;
       this.heldImages??=new Map();
-      let image=this.heldImages.get(recipe.id);
-      if(!image){image=new Image();image.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(itemSvg(recipe,{background:false}))}`;this.heldImages.set(recipe.id,image);}
+      let image=this.heldImages.get(`${recipe.id}:${tool.bowLevel||0}`);
+      if(!image){image=new Image();image.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(itemSvg(recipe,{background:false}))}`;this.heldImages.set(`${recipe.id}:${tool.bowLevel||0}`,image);}
       if(!image.complete||!image.naturalWidth)return;
       const held=heldToolPose(p,time,recipe.type,fishing,pose);
       ctx.save();ctx.translate(p.x,p.y-(p.jumpHeight||0));ctx.scale(held.flip?-held.scale:held.scale,held.scale/CAMERA_TILT);ctx.translate(held.x,held.y);ctx.rotate(held.angle);

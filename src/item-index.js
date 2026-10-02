@@ -2,6 +2,9 @@ import { MATERIALS } from './materials.js';
 import { RECIPES, RESOURCES } from './crafting.js';
 
 const RESOURCE_DETAILS={
+ sinew:['Sinew','Boars, wolves, spiders, and burrowing creatures','Bow reinforcement or sell at a general shop.','⌁'],
+ fang:['Fangs','Wolves, spiders, serpents, and deep predators','Rare bow bindings or sell at a general shop.','◢'],
+ essence:['Essence','Wisps, spirits, and deep magical creatures','Late bow evolution material or sell at a general shop.','✧'],
  arrows:['Arrows','Blacksmith ammunition counter','Ammunition for bows. Buy five for ten coins.','➶'],
   leaves:['Leaves','Bushes and fallen leaves','Starter plant material for wraps and tools.','✿'],
   sticks:['Sticks','Bushes and loose sticks','Starter handles for your first axe.','⌁'],

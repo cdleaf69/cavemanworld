@@ -22,10 +22,10 @@ test('depth increases health, damage and pursuit speed, including shiny enemies 
   }
 });
 
-test('cave loose stones are capped below surface density without removing starter stones',()=>{
+test('cave loose stones use bounded chamber populations and the old starter camp is removed',()=>{
   const registry=new SpawnableRegistry();populateWorld(new SpawnZoneManager(),registry);
   const counts=new Map();
   for(const node of registry.nodes.values())if(node.kind==='ground'&&node.resource==='stone'&&node.layer!=='surface')counts.set(node.zoneId,(counts.get(node.zoneId)||0)+1);
-  assert.ok(counts.size>0);assert.ok([...counts.values()].every(count=>count<=13));
-  assert.ok([...registry.nodes.values()].some(n=>n.id==='starter-pebble-1'));
+  assert.ok(counts.size>0);assert.ok([...counts.values()].every(count=>count<=35));
+  assert.ok(![...registry.nodes.values()].some(n=>n.id.startsWith('starter-')));
 });

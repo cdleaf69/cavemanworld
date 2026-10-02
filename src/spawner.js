@@ -1,25 +1,6 @@
-import { caveGeometry,TOWNS } from './world.js';
+import { caveGeometry,TOWNS,TOWN_BUILDINGS,LANDMARKS,waterAt } from './world.js';
 import { PATHS, TUNNELS, DEEP_TUNNELS, PORTALS, DESCENTS, canWalk, distanceToSegment, biomeAt } from './world.js';
 import { Decoration, ResourceNode, ORE_RARITY } from './spawnables.js';
-
-const STARTERS = [
-  ['pebble-1','ground','stone',9115,7010,12,1],
-  ['branch-1','ground','sticks',8880,7010,12,1],
-  ['leaves-1','ground','leaves',9000,6820,12,1],
-  ['pebble-2','ground','stone',9180,7160,12,1],
-  ['branch-2','ground','sticks',8790,7140,12,1],
-  ['pebble-3','ground','stone',8870,6880,12,1],
-  ['pebble-4','ground','stone',8770,7060,12,1],
-  ['pebble-5','ground','stone',8930,7230,12,1],
-  ['pebble-6','ground','stone',9070,7280,12,1],
-  ['pebble-7','ground','stone',9300,7200,12,1],
-  ['pebble-8','ground','stone',9340,6960,12,1],
-  ['leaves-2','ground','leaves',9090,6840,12,1],
-  ['bush-1','bush','leaves',9190,6800,27,3],
-  ['bush-2','bush','leaves',8800,6840,27,3],
-  ['sapling','tree','wood',9240,6730,37,4],
-  ['rock','rock','stone',9280,7130,32,5],
-];
 
 function seedFor(text) { let h=2166136261;for(const char of text){h^=char.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0; }
 function random(seed) { let s=seed;return () => {s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;}; }
@@ -35,7 +16,7 @@ function valid(x,y,zone,radius) {
   if(zone.id.startsWith('habitat-')&&biomeAt(x,y).id!==zone.biome)return false;
   if(nearPortal(x,y,zone.layer))return false;
   if(zone.layer==='surface'&&TOWNS.some(t=>Math.hypot(x-t.x,y-t.y)<830))return false;
-  if(zone.layer==='surface' && (nearPath(x,y)||Math.hypot(x-9000,y-7000)<760))return false;
+  if(zone.layer==='surface' && (nearPath(x,y)||waterAt(x,y)||TOWN_BUILDINGS.some(b=>Math.abs(x-b.x)<b.width/2+170&&Math.abs(y-b.y)<b.height/2+250)||LANDMARKS.some(l=>l.layer==='surface'&&Math.hypot(x-l.x,y-l.y)<230)))return false;
   if(zone.layer!=='surface'&&radius>20&&nearTunnel(x,y,zone.layer))return false;
   return true;
 }
@@ -62,13 +43,12 @@ export function populateWorld(zones,registry) {
   });
   const crowdedBushes=(x,y,layer)=>{let count=0;return nearby(x,y,layer,400,p=>p.kind==='bush'&&++count>=5);};
   const remember=(x,y,layer,kind,scale)=>{const key=`${layer}:${Math.floor(x/160)}:${Math.floor(y/160)}`;if(!spatial.has(key))spatial.set(key,[]);spatial.get(key).push({x,y,kind,scale});};
-  for(const [id,kind,resource,x,y,radius,quantity] of STARTERS)registry.addNode(new ResourceNode({id:`starter-${id}`,kind,resource,x,y,radius,quantity,layer:'surface',zoneId:'village-starters',respawnMs:30000}));
   for(const zone of zones.zones) {
     if(zone.id==='village-starters')continue; // Curated safe first steps around the village.
     const rng=random(seedFor(zone.id)),box=bounds(zone.vertices),types=zone.allowedTypes.filter(t=>t!=='ground'&&t!=='decoration');
     const habitat=zone.id.startsWith('habitat-');
     const area=(box.maxX-box.minX)*(box.maxY-box.minY);
-    const target=habitat?Math.min(2500,Math.round(area/(zone.biome==='woodland'?190000:zone.biome==='heartlands'?240000:200000))):zone.layer==='abyss'||zone.layer==='core'?28:zone.layer!=='surface'?48:zone.id==='elder-canopy'?150:zone.id==='mire-thicket'?110:zone.id==='village-grove'?80:zone.id==='heartlands-east'?90:70;
+    const target=habitat?Math.min(10000,Math.round(area/(zone.biome==='woodland'?105000:zone.biome==='heartlands'?150000:130000))):zone.layer==='abyss'||zone.layer==='core'?28:zone.layer!=='surface'?48:zone.id==='elder-canopy'?150:zone.id==='mire-thicket'?110:zone.id==='village-grove'?80:zone.id==='heartlands-east'?90:70;
     const placed=[];
     for(let attempt=0;attempt<target*35&&placed.length<target&&types.length;attempt++){
       const x=Math.round(box.minX+rng()*(box.maxX-box.minX)),y=Math.round(box.minY+rng()*(box.maxY-box.minY));
@@ -94,11 +74,11 @@ export function populateWorld(zones,registry) {
       registry.addNode(new ResourceNode({id:`${zone.id}-rare`,kind:'ore',resource:rare,x,y,radius:37,quantity:4,layer:zone.layer,zoneId:zone.id}));break;
     }
     // Loose stones are hand-pickable; large boulders remain mining targets.
-    const looseStoneTarget=zone.layer==='surface'?20:13;
-    if(zone.resources.includes('stone')&&zone.allowedTypes.includes('ground'))for(let attempt=0,created=0;attempt<500&&created<looseStoneTarget;attempt++){
+    const looseStoneTarget=zone.layer==='surface'?(habitat?Math.min(1000,Math.ceil(area/1400000)):20):35;
+    if(zone.resources.includes('stone')&&zone.allowedTypes.includes('ground'))for(let attempt=0,created=0;attempt<looseStoneTarget*40&&created<looseStoneTarget;attempt++){
       const x=Math.round(box.minX+rng()*(box.maxX-box.minX)),y=Math.round(box.minY+rng()*(box.maxY-box.minY));
       if(!valid(x,y,zone,12)||placed.some(p=>Math.hypot(p.x-x,p.y-y)<90))continue;
-      registry.addNode(new ResourceNode({id:`${zone.id}-pebble-${created++}`,kind:'ground',resource:'stone',x,y,radius:12,quantity:1,layer:zone.layer,zoneId:zone.id}));
+      registry.addNode(new ResourceNode({id:`${zone.id}-pebble-${created++}`,kind:'ground',resource:zone.layer==='surface'&&habitat?['stone','sticks','leaves'][created%3]:'stone',x,y,radius:12,quantity:1,layer:zone.layer,zoneId:zone.id}));
     }
     if(zone.allowedTypes.includes('decoration')){
       const count=habitat?Math.round(target*.65):zone.layer==='surface'&&zone.allowedTypes.includes('tree')?90:zone.layer==='surface'?50:40;
@@ -111,4 +91,12 @@ export function populateWorld(zones,registry) {
     }
   }
   return { nodes:registry.nodes.size, decorations:registry.decorations.size };
+}
+
+export function populateSpawnSupplies(registry,spawn){
+ const seeds=[['bush','leaves',80,60,28,2],['tree','wood',150,-90,43,4],['rock','stone',-160,-110,34,5],...Array.from({length:8},(_,i)=>['ground','stone',Math.cos(i*.785)*180,Math.sin(i*.785)*180,12,1])];
+ for(const [i,[kind,resource,dx,dy,radius,quantity]] of seeds.entries()){
+  const x=spawn.x+dx,y=spawn.y+dy;if(!canWalk(x,y,'surface',radius)||waterAt(x,y))continue;
+  registry.addNode(new ResourceNode({id:`spawn-supply-${i}`,zoneId:'spawn-supplies',kind,resource,x,y,radius,quantity,layer:'surface'}));
+ }
 }

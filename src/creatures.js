@@ -2,10 +2,20 @@ import { EXTRA_CAVES } from './world.js';
 import { BIOMES, CAVE_ROOMS, DEEP_ROOMS, canWalk, biomeAt, PORTALS, DESCENTS, PLAYER_RADIUS } from './world.js';
 
 export const CREATURE_KINDS = Object.freeze({
+  wolf:{name:'Grey Wolf',temperament:'neutral',health:40,speed:100,radius:26,loot:{meat:3,hide:2,sinew:2,fang:1}},
+  caveSpider:{name:'Cave Spider',temperament:'hostile',health:25,speed:104,radius:24,damage:8,attackRange:58,aggroRange:950,loot:{sinew:2,fang:1,venom:1}},
+  rootStalker:{name:'Root Stalker',temperament:'hostile',health:42,speed:59,radius:31,damage:12,attackRange:80,aggroRange:950,loot:{wood:3,sinew:1,verdite:1}},
+  frostSerpent:{name:'Frost Serpent',temperament:'hostile',health:40,speed:83,radius:27,damage:14,attackRange:85,aggroRange:1080,loot:{fang:2,quartz:2,essence:1}},
+  duneBurrower:{name:'Dune Burrower',temperament:'hostile',health:48,speed:65,radius:30,damage:13,attackRange:72,aggroRange:940,charger:true,loot:{shell:2,fang:1,sinew:1,copper:1}},
+  bogSpitter:{name:'Bog Spitter',temperament:'hostile',health:33,speed:48,radius:27,damage:12,attackRange:65,aggroRange:1000,ranged:true,loot:{venom:2,sinew:1,amber:1}},
+  obsidianSentinel:{name:'Obsidian Sentinel',temperament:'hostile',health:90,speed:35,radius:37,damage:23,attackRange:90,aggroRange:1000,loot:{obsidian:3,essence:2,stone:3}},
+  crystalMoth:{name:'Crystal Moth',temperament:'hostile',health:30,speed:111,radius:22,damage:11,attackRange:65,aggroRange:1100,loot:{wing:3,essence:2,moonstone:1}},
+  voidReaper:{name:'Void Reaper',temperament:'hostile',health:58,speed:99,radius:27,damage:21,attackRange:92,aggroRange:1150,loot:{essence:3,fang:2,glimmer:1}},
+  magmaBrute:{name:'Magma Brute',temperament:'hostile',health:100,speed:46,radius:39,damage:26,attackRange:88,aggroRange:1100,charger:true,loot:{infernite:2,essence:2,shell:2}},
   rabbit: { name:'Rabbit', temperament:'neutral', health:10, speed:60, radius:19, loot:{meat:1,hide:1} },
   deer: { name:'Deer', temperament:'neutral', health:22, speed:67, radius:27, loot:{meat:3,hide:2} },
   fox: { name:'Fox', temperament:'neutral', health:18, speed:88, radius:22, loot:{meat:2,hide:2} },
-  boar: { name:'Boar', temperament:'neutral', health:38, speed:62, radius:29, loot:{meat:4,hide:3,bone:1} },
+  boar: { name:'Boar', temperament:'neutral', health:38, speed:62, radius:29, loot:{meat:4,hide:3,bone:1,sinew:2} },
   tortoise: { name:'Moss Tortoise', temperament:'neutral', health:46, speed:30, radius:27, loot:{meat:2,shell:3} },
   snowHare: { name:'Snow Hare', temperament:'neutral', health:15, speed:94, radius:19, loot:{meat:1,hide:2} },
   marshCrane: { name:'Marsh Crane', temperament:'neutral', health:20, speed:77, radius:23, loot:{meat:2,wing:2} },
@@ -109,48 +119,28 @@ export class CreatureRegistry {
 
 export function populateCreatures(registry){
   registry.creatures.length=0;
-  // The village has visible, approachable wildlife from the first minute.
-  const starters=[['rabbit',9340,6870],['fox',8600,6910],['deer',9660,6970],['tortoise',9400,7350]];
-  for(const [kind,x,y] of starters){const id=`village-${kind}-${x}`;registry.add(new Creature({id,kind,x,y,layer:'surface',shiny:shinyRoll(id,'surface')}));}
   for(const biome of BIOMES){
     for(let i=0;i<10;i++){
       const angle=i*2.399+biome.seed,rad=720+(i%3)*390;
       const x=Math.round(biome.center[0]+Math.cos(angle)*rad),y=Math.round(biome.center[1]+Math.sin(angle)*rad);
       if(biomeAt(x,y,'surface').id!==biome.id||!canWalk(x,y,'surface',35)||PORTALS.some(p=>Math.hypot(x-p.surface.x,y-p.surface.y)<260))continue;
-      const pool=({woodland:['deer','fox','boar','rabbit'],marsh:['marshCrane','tortoise','boar','rabbit'],tundra:['snowHare','deer','fox'],badlands:['sandLizard','tortoise','fox','boar'],volcanic:['sandLizard','boar','tortoise','fox']})[biome.id]||['rabbit','deer','fox','boar','tortoise'];
+      const pool=({woodland:['deer','fox','boar','rabbit','wolf'],marsh:['marshCrane','tortoise','boar','rabbit'],tundra:['snowHare','deer','fox'],badlands:['sandLizard','tortoise','fox','boar'],volcanic:['sandLizard','boar','tortoise','fox']})[biome.id]||['rabbit','deer','fox','boar','tortoise'];
       const id=`${biome.id}-${biome.seed}-animal-${i}`;registry.add(new Creature({id,kind:pool[i%pool.length],x,y,layer:'surface',shiny:shinyRoll(id,'surface')}));
     }
   }
-  for(const [roomIndex,room] of CAVE_ROOMS.entries()){
-    for(let i=0;i<4;i++){
-      const angle=i*2.2+roomIndex*.8,radius=room.r*.57;
-      const habitat=room.name.toLowerCase(),native=habitat.includes('frost')?'frostWisp':habitat.includes('mire')||habitat.includes('glow')?'mireLeech':habitat.includes('ash')?'ashMite':null;
-      let x=Math.round(room.x+Math.cos(angle)*radius),y=Math.round(room.y+Math.sin(angle)*radius);
-      if(native&&i===3)for(let attempt=0;attempt<16;attempt++){
-        const a=attempt*Math.PI/8+roomIndex*.31,cx=Math.round(room.x+Math.cos(a)*room.r*.72),cy=Math.round(room.y+Math.sin(a)*room.r*.72);
-        if(canWalk(cx,cy,'cave',34)&&!entranceSafe(cx,cy,'cave',190)){x=cx;y=cy;break;}
+  for(const [layer,rooms] of [['cave',CAVE_ROOMS],['deep',DEEP_ROOMS],...Object.entries(EXTRA_CAVES).map(([l,g])=>[l,g.rooms])]){
+    const depth=['cave','deep','abyss','core'].indexOf(layer)+1;
+    for(const [roomIndex,room] of rooms.entries()){
+      const biome=(room.biome||'woodland').replace('deep-','');
+      const local=({woodland:['rootStalker','caveSpider','caveBat'],tundra:['frostWisp','frostSerpent','caveBat'],marsh:['mireLeech','bogSpitter','caveSlime'],badlands:['duneBurrower','rockScorpion','stoneRam'],volcanic:['ashMite','emberGolem','rockScorpion']})[biome]||['caveSpider','caveCrawler'];
+      const pool=depth===1?local:depth===2?[...local,'crystalBeetle','crystalMoth']:depth===3?[local[0],local[1],'crystalMoth','obsidianSentinel','voidReaper']:[local[0],'voidReaper','obsidianSentinel','magmaBrute','crystalMoth'];
+      for(let i=0;i<7+depth*2;i++){
+        const angle=i*2.399+roomIndex*.71,radius=room.r*(.35+(i%3)*.18),x=Math.round(room.x+Math.cos(angle)*radius),y=Math.round(room.y+Math.sin(angle)*radius);
+        if(!canWalk(x,y,layer,40)||entranceSafe(x,y,layer,250))continue;
+        const id=`${layer}-${roomIndex}-${i}`,kind=pool[(i+roomIndex)%pool.length],m=new Creature({id,kind,x,y,layer,shiny:shinyRoll(id,layer)});
+        const material=room.material;if(material)m.loot={...m.loot,[material]:1+depth};registry.add(m);
       }
-      if(!canWalk(x,y,'cave',34)||entranceSafe(x,y,'cave',190))continue;
-      const id=`cave-${roomIndex}-${i}`,kind=native&&i===3?native:['caveBat','caveCrawler','caveSlime'][(i+roomIndex)%3];registry.add(new Creature({id,kind,x,y,layer:'cave',shiny:shinyRoll(id,'cave')}));
     }
-    if(roomIndex%2===0){
-      const angle=roomIndex*.8+Math.PI*.35,x=Math.round(room.x+Math.cos(angle)*room.r*.57),y=Math.round(room.y+Math.sin(angle)*room.r*.57);
-      const id=`cave-${roomIndex}-scorpion`;if(canWalk(x,y,'cave',34)&&!entranceSafe(x,y,'cave',190))registry.add(new Creature({id,kind:'rockScorpion',x,y,layer:'cave',shiny:shinyRoll(id,'cave')}));
-    }
-  }
-  for(const [roomIndex,room] of DEEP_ROOMS.entries())for(let i=0;i<6;i++){
-    const angle=i*1.047+roomIndex*.63,radius=room.r*.62,x=Math.round(room.x+Math.cos(angle)*radius),y=Math.round(room.y+Math.sin(angle)*radius);
-    if(!canWalk(x,y,'deep',35)||entranceSafe(x,y,'deep',190))continue;
-    const native=room.biome==='deep-tundra'?'frostWisp':room.biome==='deep-marsh'?'mireLeech':room.biome==='deep-volcanic'?'ashMite':null;
-    const id=`deep-${roomIndex}-${i}`,kind=i===5&&native?native:['caveBat','crystalBeetle','rockScorpion','stoneRam','caveSlime','caveCrawler'][i];
-    registry.add(new Creature({id,kind,x,y,layer:'deep',shiny:shinyRoll(id,'deep')||roomIndex===4&&i===3}));
-  }
-  for(const [layer,data] of Object.entries(EXTRA_CAVES))for(const [i,r] of data.rooms.entries())for(let j=0;j<4;j++){
-    const pool=['emberGolem','crystalBeetle','rockScorpion','stoneRam','caveCrawler','caveSlime'];
-    const native=r.biome.includes('tundra')?'frostWisp':r.biome.includes('marsh')?'mireLeech':r.biome.includes('volcanic')?'ashMite':null;
-    const id=`${layer}-${i}-${j}`,kind=j===3&&native?native:pool[(i+j)%pool.length],m=new Creature({id,kind,x:r.x+Math.cos(j*1.57)*330,y:r.y+Math.sin(j*1.57)*330,layer,shiny:shinyRoll(id,layer)});
-    if(!canWalk(m.x,m.y,layer,m.radius)||entranceSafe(m.x,m.y,layer,190))continue;
-    m.loot={...m.loot,[r.material]:2};registry.add(m);
   }
   return registry.creatures.length;
 }
