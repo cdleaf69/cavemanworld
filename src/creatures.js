@@ -1,7 +1,19 @@
+import {FISH_SPECIES} from './fish-species.js';
+import {waterAt} from './world.js';
 import { EXTRA_CAVES } from './world.js';
 import { BIOMES, CAVE_ROOMS, DEEP_ROOMS, canWalk, biomeAt, PORTALS, DESCENTS, PLAYER_RADIUS } from './world.js';
 
 export const CREATURE_KINDS = Object.freeze({
+  bigfoot:{name:'Bigfoot',temperament:'hostile',health:1100,speed:120,radius:55,damage:34,attackRange:110,aggroRange:1500,boss:true,loot:{bigfootFur:3,eagleFeather:6,skyCrystal:4,essence:3}},
+  reefCrab:{name:'Reef Crab',temperament:'hostile',health:35,speed:80,radius:23,damage:8,attackRange:60,aggroRange:500,aquatic:true,loot:{shell:2,seaScale:1}},
+  seaTurtle:{name:'Sea Turtle',temperament:'neutral',health:65,speed:55,radius:34,aquatic:true,loot:{shell:3,seaScale:2}},
+  dolphin:{name:'Dolphin',temperament:'neutral',health:90,speed:145,radius:30,aquatic:true,loot:{seaScale:3}},
+  jellyfish:{name:'Moon Jellyfish',temperament:'hostile',health:28,speed:45,radius:23,damage:10,attackRange:60,aggroRange:400,aquatic:true,loot:{seaEssence:1,venom:2}},
+  mantaRay:{name:'Manta Ray',temperament:'neutral',health:80,speed:95,radius:40,aquatic:true,loot:{seaScale:3,pearl:1}},
+  reefShark:{name:'Reef Shark',temperament:'hostile',health:110,speed:130,radius:36,damage:18,attackRange:80,aggroRange:850,aquatic:true,loot:{fang:2,seaScale:3,seaEssence:2}},
+  morayEel:{name:'Moray Eel',temperament:'hostile',health:65,speed:120,radius:25,damage:14,attackRange:65,aggroRange:650,aquatic:true,loot:{seaScale:2,seaEssence:1}},
+  giantSquid:{name:'Giant Squid',temperament:'hostile',health:180,speed:90,radius:43,damage:24,attackRange:95,aggroRange:1000,aquatic:true,loot:{seaEssence:4,pearl:2}},
+  ...Object.fromEntries(FISH_SPECIES.map(f=>[f.id,{name:f.name,temperament:'neutral',health:12+f.rank*3,speed:65+f.rank*3,radius:12+f.rank,aquatic:true,loot:{[f.id]:1}}])),
   wolf:{name:'Grey Wolf',temperament:'neutral',health:40,speed:100,radius:26,loot:{meat:3,hide:2,sinew:2,fang:1}},
   caveSpider:{name:'Cave Spider',temperament:'hostile',health:25,speed:104,radius:24,damage:8,attackRange:58,aggroRange:950,loot:{sinew:2,fang:1,venom:1}},
   rootStalker:{name:'Root Stalker',temperament:'hostile',health:42,speed:59,radius:31,damage:12,attackRange:80,aggroRange:950,loot:{wood:3,sinew:1,verdite:1}},
@@ -60,6 +72,7 @@ export class Creature {
     return {ok:true,dead:true,loot:{...this.loot}};
   }
   update(dt,now,player,canMove=canWalk){
+    if(this.aquatic)canMove=(x,y,layer)=>layer==='ocean'?canWalk(x,y,'ocean',this.radius):waterAt(x,y,'surface');
     if(!this.alive){if(now>=this.respawnAt){this.alive=true;this.health=this.maxHealth;this.x=this.homeX;this.y=this.homeY;}return null;}
     if(player.layer!==this.layer||Math.hypot(player.x-this.x,player.y-this.y)>Math.max(1100,this.aggroRange*1.4))return null;
     const dx=player.x-this.x,dy=player.y-this.y,distance=Math.hypot(dx,dy);

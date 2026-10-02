@@ -1,3 +1,4 @@
+import {frontierItemSvg} from './frontier-item-art.js';
 import { MATERIAL_COLORS } from './materials.js';
 import { pickaxeSvg } from './pickaxe-art.js';
 import { toolSvg } from './tool-art.js';
@@ -10,7 +11,9 @@ export function itemSvg(recipe,{background=true}={}){
   const [dark,light]=PALETTE[recipe.tier]||PALETTE.stone;
   const isGear=recipe.category==='gear';
   let shape='';
-  if(recipe.category==='structure'){
+  const frontier=frontierItemSvg(recipe);
+  if(frontier)shape=frontier;
+  else if(recipe.category==='structure'){
     shape=`<path d="M16 69 34 55 76 69M20 75 62 53 80 75" fill="none" stroke="#b99265" stroke-width="9" stroke-linecap="round"/><path d="M47 61Q23 40 43 20Q42 39 52 34Q65 15 68 42Q69 57 47 61Z" fill="#f4a657" stroke="#ffdb8d" stroke-width="3"/>`;
   }else if(isGear){
     shape=`<path d="M22 18 37 12 46 19 55 12 70 18 77 34 65 40 62 75 30 75 27 40 15 34Z" fill="${dark}" stroke="${light}" stroke-width="4"/><path d="M38 21 46 29 54 21M31 46h30M34 58h24" fill="none" stroke="${light}" stroke-width="3"/>`;

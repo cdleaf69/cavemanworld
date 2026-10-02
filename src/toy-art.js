@@ -1,3 +1,4 @@
+import {mountainAt,altitudeAt,unprojectMountainPoint} from './frontier-world.js';
 import { caveGeometry,TOWNS } from './world.js';
 import { MATERIAL_COLORS } from './materials.js';
 import { PixelArt, grain } from './pixel-art.js';
@@ -13,8 +14,11 @@ const ore={iron:'#b9d9da',copper:'#f79268',quartz:'#b7f0ef',amber:'#ffca57',obsi
 const gear={leaf:'#64c776',wood:'#cb8c58',stone:'#a4bdc2',iron:'#7bc9de',copper:'#efa16d',quartz:'#ace7e8',amber:'#f2c357',obsidian:'#9c83cb',moonstone:'#e0a7ef'};
 Object.assign(ore,MATERIAL_COLORS);Object.assign(gear,MATERIAL_COLORS);
 const sections=points=>points.slice(1).map((b,i)=>({a:points[i],b,minX:Math.min(points[i][0],b[0])-130,maxX:Math.max(points[i][0],b[0])+130,minY:Math.min(points[i][1],b[1])-130,maxY:Math.max(points[i][1],b[1])+130}));
-const trails=PATHS.flatMap(p=>sections(p.points)),river=sections(RIVER);
-function near(x,y,list){let d=10000;for(const s of list)if(x>=s.minX&&x<=s.maxX&&y>=s.minY&&y<=s.maxY)d=Math.min(d,distanceToSegment(x,y,...s.a,...s.b));return d;}
+function indexSections(list){
+ const cells=new Map();for(const s of list)for(let cy=Math.floor(s.minY/512);cy<=Math.floor(s.maxY/512);cy++)for(let cx=Math.floor(s.minX/512);cx<=Math.floor(s.maxX/512);cx++){const key=`${cx}:${cy}`;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(s);}list.cells=cells;return list;
+}
+const trails=indexSections(PATHS.flatMap(p=>sections(p.points).map(s=>({...s,half:p.width/2})))),river=indexSections(sections(RIVER));
+function near(x,y,list){let d=10000;for(const s of (list.cells?.get(`${Math.floor(x/512)}:${Math.floor(y/512)}`)||[]))if(x>=s.minX&&x<=s.maxX&&y>=s.minY&&y<=s.maxY)d=Math.min(d,distanceToSegment(x,y,...s.a,...s.b)-(s.half||0));return d;}
 function block(c,x,y,w,h,color){c.fillStyle=color;c.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));}
 function roundedBody(c,x,y,w,h,color){for(let row=0;row<h;row+=2){const half=Math.round(w/2*Math.sqrt(Math.max(0,1-((row-h/2)/(h/2))**2)));block(c,x+w/2-half,y+row,half*2,2,color);}}
 function poly(c,points,color){c.fillStyle=color;c.beginPath();c.moveTo(...points[0]);for(const p of points.slice(1))c.lineTo(...p);c.closePath();c.fill();}
@@ -27,6 +31,7 @@ function canopy(c,x,y,w,h,p,seed){
 }
 function smoothNoise(x,y,size){const fx=x/size,fy=y/size,ix=Math.floor(fx),iy=Math.floor(fy),a=fx-ix,b=fy-iy,u=a*a*(3-2*a),v=b*b*(3-2*b);return (grain(ix,iy)*(1-u)+grain(ix+1,iy)*u)*(1-v)+(grain(ix,iy+1)*(1-u)+grain(ix+1,iy+1)*u)*v;}
 function sample(x,y,layer){
+  if(layer==='ocean'){const depth=clamp(-oceanDistance(x,y)/2500),n=smoothNoise(x,y,230);return {color:mix([80+n*10,151+n*8,160],[27,66,107],depth*.8),water:false,dirt:false,bridge:false};}
   if(layer!=='surface'){
     const {rooms,tunnels}=caveGeometry(layer);
     let inside=-10000;for(const r of rooms)inside=Math.max(inside,r.r-Math.hypot(x-r.x,y-r.y));
@@ -34,16 +39,18 @@ function sample(x,y,layer){
     const floor=({deep:[94,94,145],abyss:[72,106,122],core:[124,81,103]}[layer]||[115,118,138]),wall=({deep:[34,43,78],abyss:[27,49,64],core:[55,34,61]}[layer]||[42,61,79]);
     return {color:mix(wall,floor,clamp((inside+10)/34)),water:false,dirt:false,bridge:false};
   }
+  if(mountainAt(x,y)){const p=unprojectMountainPoint({x,y});y=p.y;}
   const n=smoothNoise(x,y,340),detail=smoothNoise(x,y,150);
   let color=ground.heartlands;
   for(const b of BIOMES){const rx=(x-b.center[0])/b.radii[0],ry=(y-b.center[1])/b.radii[1],w=clamp((1.10-Math.hypot(rx,ry))*4.4+(n-.5)*.3);if(w)color=mix(color,ground[b.id],w);}
   // World-space noise crosses tile edges continuously; texture is baked only once.
   color=color.map(v=>v+(n-.5)*10+(detail-.5)*7);
   color=mix(color,[169,211,106],clamp((detail-.48)*.3));
+  const m=mountainAt(x,y);if(m){const h=altitudeAt(x,y)/m.height;color=mix(color,m.id==='frostpeak'?[185,203,190]:[132,151,135],clamp(h*.8));color=color.map(v=>v+(detail-.5)*15);if(h>.985)color=mix(color,m.id==='frostpeak'?[193,218,202]:[153,191,132],.7);}
   const path=near(x,y,trails),stream=near(x,y,river),village=Math.hypot(x-9000,y-7000);
   const edge=smoothNoise(x+1900,y-750,95);
-  const townPlaza=Math.max(...TOWNS.map(t=>clamp((370-Math.hypot(x-t.x,y-t.y)+(detail-.5)*52)/100)));
-  const dirt=clamp((65-path+(edge-.5)*22)/38),plaza=0,soil=Math.max(dirt,plaza,townPlaza);
+  const townPlaza=Math.max(...TOWNS.map(t=>clamp((260-Math.hypot(x-t.x,y-t.y)+(detail-.5)*24)/75)));
+  const dirt=clamp((10-path+(edge-.5)*8)/22),plaza=0,soil=Math.max(dirt,plaza,townPlaza);
   color=mix(color,[233+(detail-.5)*12,196+(detail-.5)*12,119+(detail-.5)*10],soil);
   const coast=oceanDistance(x,y);
   if(coast<240){const sand={tundra:[218,232,205],marsh:[198,202,143],badlands:[239,181,109],volcanic:[177,160,179],woodland:[224,207,141],heartlands:[239,211,147]}[biomeAt(x,y,'surface').id]||[239,211,147];color=mix(color,sand,clamp((240-coast)/130));}

@@ -73,7 +73,7 @@ export class WorldRenderer {
     for(const path of PATHS){
       line(ctx,path.points);
       ctx.strokeStyle=overview?'#e7d7aa':'#b9a67d';
-      ctx.lineWidth=overview?55:94;
+      ctx.lineWidth=overview?path.width*.7:path.width;
       ctx.stroke();
     }
   }

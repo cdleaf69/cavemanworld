@@ -15,7 +15,7 @@ export class AdventureArt extends ToyArt {
   makeTerrain(gx,gy,layer){
     const image=super.makeTerrain(gx,gy,layer),c=image.getContext('2d');
     // Sparse, fixed pixel details are baked once in the terrain worker.
-    for(let i=0;i<70;i++){const x=Math.floor(grain(gx*71+i,gy)*254),y=Math.floor(grain(gy*71+i,gx)*254);const color=layer==='surface'?'#537f4930':'#c4bada25';rect(c,x,y,2,1,color);if(i%3===0)rect(c,x+1,y-2,1,3,color);}
+    for(let i=0;i<70;i++){const x=Math.floor(grain(gx*71+i,gy)*254),y=Math.floor(grain(gy*71+i,gx)*254);const color=layer==='surface'?'#537f4930':layer==='ocean'?'#a8d4cf20':'#c4bada25';rect(c,x,y,2,1,color);if(i%3===0)rect(c,x+1,y-2,1,3,color);}
     return image;
   }
   makeResource(kind,biome,resource,variant){
@@ -162,10 +162,11 @@ export class AdventureArt extends ToyArt {
   }
   player(ctx,p,inventory,time,fishing){
     if(p.swimming){this.drawSwimmer(ctx,p,inventory,time);return;}
-    const back=Math.sin(p.facing)<-.45,side=Math.abs(Math.cos(p.facing))>.7,step=p.moving?[0,1,0,-1][Math.floor(time/145)%4]:0,armor=inventory.equippedGear?.tier,tool=inventory.equippedTool;
+    const back=Math.sin(p.facing)<-.45,side=Math.abs(Math.cos(p.facing))>.7,step=p.moving?[0,1,0,-1][Math.floor(time/145)%4]:0,armor=inventory.equippedGear?.tier,style=p.appearance||{},tool=fishing?.active?fishing.tool:inventory.equippedTool?.type==='transport'?null:inventory.equippedTool;
     const pose=playerArmPose(p,time,tool?.type,fishing);
-    const sprite=this.sprite(`adventurer:${back}:${side}:${step}:${armor}`,()=>{
-      const image=canvas(44,66),c=image.getContext('2d'),skin='#e4ad80',skinLight='#f2c495',skinShade='#c68c65',shirt=MATERIAL_COLORS[armor]||({leaf:'#71ae65',wood:'#b78858',iron:'#9bbec9',stone:'#9caeb0',copper:'#d7966b',quartz:'#a8d9dc',amber:'#ddb865',obsidian:'#9a81b6',moonstone:'#cbb3e0'}[armor])||'#bd8056';
+    const sprite=this.sprite(`adventurer:${back}:${side}:${step}:${armor}:${style.id||'player'}`,()=>{
+      const hair=style.hair||'#634b39';
+      const image=canvas(44,66),c=image.getContext('2d'),skin=style.skin||'#e4ad80',skinLight=style.skinLight||'#f2c495',skinShade=style.skinShade||'#c68c65',shirt=style.shirt||MATERIAL_COLORS[armor]||({leaf:'#71ae65',wood:'#b78858',iron:'#9bbec9',stone:'#9caeb0',copper:'#d7966b',quartz:'#a8d9dc',amber:'#ddb865',obsidian:'#9a81b6',moonstone:'#cbb3e0'}[armor])||'#bd8056';
       // Small stepped contours and broad color planes keep the figure readable at game zoom.
       for(const [x,stride] of [[side?16:14,step],[25,-step]]){
         if(side){
@@ -203,12 +204,12 @@ export class AdventureArt extends ToyArt {
       rect(c,15,9,15,3,skin);rect(c,13,12,19,9,skin);rect(c,14,21,17,3,skin);rect(c,17,24,11,2,skinShade);
       rect(c,11,16,3,4,skinShade);rect(c,12,16,2,3,skin);rect(c,31,16,3,4,skinShade);
       rect(c,14,12,3,9,skinLight);rect(c,29,13,2,10,skinShade);
-      rect(c,12,8,3,8,'#634b39');rect(c,14,5,16,6,'#634b39');rect(c,17,3,11,3,'#785638');
-      rect(c,11,10,3,6,'#634b39');rect(c,29,8,4,7,'#634b39');rect(c,31,13,2,4,'#634b39');
-      rect(c,15,6,9,2,'#a27849');rect(c,16,9,4,3,'#634b39');rect(c,25,9,5,2,'#634b39');
+      rect(c,12,8,3,8,hair);rect(c,14,5,16,6,hair);rect(c,17,3,11,3,'#785638');
+      rect(c,11,10,3,6,hair);rect(c,29,8,4,7,hair);rect(c,31,13,2,4,hair);
+      rect(c,15,6,9,2,'#a27849');rect(c,16,9,4,3,hair);rect(c,25,9,5,2,hair);
       if(back){
         // Walking away shows the back of the head and the nape, rather than eyes.
-        rect(c,13,10,19,12,'#634b39');rect(c,14,21,17,2,'#634b39');rect(c,17,23,11,2,'#785638');
+        rect(c,13,10,19,12,hair);rect(c,14,21,17,2,hair);rect(c,17,23,11,2,'#785638');
         rect(c,15,11,3,8,'#785638');rect(c,16,11,1,5,'#986d43');
       }
       const eyeY=back?14:15,pupilY=back?eyeY:eyeY+1,pupilShift=side?3:2;
@@ -217,24 +218,34 @@ export class AdventureArt extends ToyArt {
         rect(c,22,20,2,2,skinShade);rect(c,21,20,1,1,skinLight);
         rect(c,19,23,7,1,'#9d684b');rect(c,20,24,5,1,'#f0bb8d');
       }
-      return {image,ax:22,ay:61};
-    });if(!p.swimBody)this.shadow(ctx,p.x,p.y,23);if(back&&tool)this.drawHeldTool(ctx,p,tool,time,fishing,pose);this.draw(ctx,sprite,p.x,p.y-(p.jumpHeight||0),1.65,1,Math.cos(p.facing)<-.7);
-    if(!p.swimBody){
-    const armKey=pose.arms.flatMap(arm=>[arm.shoulder.x,arm.elbow.x,arm.elbow.y,arm.hand.x,arm.hand.y,arm.far?1:0].map(Math.round)).join(':');
-    const armSprite=this.sprite(`arms:${armKey}`,()=>{
-      const image=canvas(52,66),c=image.getContext('2d');
-      for(const arm of pose.arms)this.drawArm(c,arm);
+      if(style.longHair){rect(c,10,12,4,15,hair);rect(c,31,12,4,15,hair);}
+      if(style.curly){for(const [x,y] of [[11,7],[15,3],[22,1],[29,5],[32,10]])rect(c,x,y,5,5,hair);}
+      if(style.bald){rect(c,15,5,15,6,skin);rect(c,17,4,10,2,skinLight);if(back)rect(c,15,8,14,10,skinShade);}
+      if(style.wideJaw){rect(c,13,21,3,3,skin);rect(c,29,21,3,3,skinShade);}
+      if(!back&&style.beard){rect(c,16,22,14,4,hair);rect(c,19,26,8,2,hair);rect(c,19,23,7,1,skinShade);}
+      if(!back&&style.freckles){rect(c,15,21,2,1,skinShade);rect(c,28,21,2,1,skinShade);}
       return {image,ax:22,ay:61};
     });
-    this.draw(ctx,armSprite,p.x,p.y-(p.jumpHeight||0),1.65,1,pose.flip);
-    }
+    if(!p.swimBody)this.shadow(ctx,p.x,p.y,23);
+    if(back&&tool)this.drawHeldTool(ctx,p,tool,time,fishing,pose);
+    if(!p.swimBody)this.drawPlayerArms(ctx,p,pose,true);
+    this.draw(ctx,sprite,p.x,p.y-(p.jumpHeight||0),1.65,1,pose.flip);
+    if(!p.swimBody)this.drawPlayerArms(ctx,p,pose,false);
     if(tool&&!back)this.drawHeldTool(ctx,p,tool,time,fishing,pose);
+  }
+  drawPlayerArms(ctx,p,pose,behind){
+    const arms=pose.arms.filter(arm=>(pose.back||arm.far)===behind);
+    if(!arms.length)return;
+    const key=arms.flatMap(arm=>[arm.shoulder.x,arm.elbow.x,arm.elbow.y,arm.hand.x,arm.hand.y,arm.far?1:0].map(Math.round)).join(':');
+    const sprite=this.sprite(`layered-arms:${key}:${p.appearance?.id||'player'}`,()=>{
+      const image=canvas(52,66),c=image.getContext('2d');for(const arm of arms)this.drawArm(c,{...arm,appearance:p.appearance});return {image,ax:22,ay:61};
+    });this.draw(ctx,sprite,p.x,p.y-(p.jumpHeight||0),1.65,1,pose.flip);
   }
   drawSwimmer(ctx,p,inventory,time){
     // Keep the normal upright head and torso. Only the joints, kicks, and waterline animate.
     const phase=p.moving?Math.floor(time/110)%8:Math.floor(time/240)%8;
     const side=Math.abs(Math.cos(p.facing))>.7,back=Math.sin(p.facing)<-.45,flip=Math.cos(p.facing)<-.7;
-    const bob=[0,0,1,1,0,0,-1,-1][phase],bodyY=p.y+28+bob,waterline=p.y-6;
+    const bob=[0,0,1,1,0,0,-1,-1][phase],bodyY=p.y+(p.underwater?0:28)+bob,waterline=p.y+(p.underwater?40:-6);
     const kicks=this.sprite(`swim-kicks:${phase}`,()=>{
       const image=canvas(44,66),c=image.getContext('2d');
       for(let i=0;i<2;i++){
@@ -243,7 +254,7 @@ export class AdventureArt extends ToyArt {
       }
       return {image,ax:22,ay:61};
     });this.draw(ctx,kicks,p.x,bodyY,1.65,.3,flip);
-    ctx.save();ctx.beginPath();ctx.rect(p.x-90,p.y-200,180,194);ctx.clip();
+    ctx.save();ctx.beginPath();ctx.rect(p.x-90,p.y-200,180,p.underwater?266:194);ctx.clip();
     this.player(ctx,{...p,y:bodyY,swimming:false,swimBody:true,moving:false,jumpHeight:0,swingUntil:0},{...inventory,equippedTool:null},time);
     ctx.restore();
     const arms=this.sprite(`swim-arms:${phase}:${side}:${back}`,()=>{
@@ -257,7 +268,8 @@ export class AdventureArt extends ToyArt {
       }
       return {image,ax:22,ay:61};
     });
-    ctx.save();ctx.beginPath();ctx.rect(p.x-90,p.y-200,180,194);ctx.clip();this.draw(ctx,arms,p.x,bodyY,1.65,1,flip);ctx.restore();
+    ctx.save();ctx.beginPath();ctx.rect(p.x-90,p.y-200,180,p.underwater?266:194);ctx.clip();this.draw(ctx,arms,p.x,bodyY,1.65,1,flip);ctx.restore();
+    if(p.underwater&&inventory.equippedTool&&inventory.equippedTool.type!=='transport')this.drawHeldTool(ctx,p,inventory.equippedTool,time,null,playerArmPose(p,time,inventory.equippedTool.type));
     // Small stationary ripple masks break around the moving shoulders, not a rotating body.
     ctx.save();ctx.fillStyle='#a6e4e7';ctx.globalAlpha=.7;
     rect(ctx,p.x-25,waterline,14,2);rect(ctx,p.x+10,waterline+2,14,2);
@@ -271,15 +283,15 @@ export class AdventureArt extends ToyArt {
       let image=this.heldImages.get(`${recipe.id}:${tool.bowLevel||0}`);
       if(!image){image=new Image();image.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(itemSvg(recipe,{background:false}))}`;this.heldImages.set(`${recipe.id}:${tool.bowLevel||0}`,image);}
       if(!image.complete||!image.naturalWidth)return;
-      const held=heldToolPose(p,time,recipe.type,fishing,pose);
+      const held=heldToolPose(p,time,recipe.type,fishing,pose);if(tool.id==='powered-drill'||tool.id==='grappling-tool')held.grip={x:24/96,y:78/96};
       ctx.save();ctx.translate(p.x,p.y-(p.jumpHeight||0));ctx.scale(held.flip?-held.scale:held.scale,held.scale/CAMERA_TILT);ctx.translate(held.x,held.y);ctx.rotate(held.angle);
       ctx.imageSmoothingEnabled=false;
       ctx.drawImage(image,-held.size*held.grip.x,-held.size*held.grip.y,held.size,held.size);
       rect(ctx,-2,-1,4,3,'#e4ad80');rect(ctx,-1,-1,2,1,'#f2c495');
       ctx.restore();
   }
-  drawArm(ctx,{shoulder,elbow,hand,far=false}){
-    const skin=far?'#ce986f':'#e4ad80',light=far?'#e0ae80':'#f2c495';
+  drawArm(ctx,{shoulder,elbow,hand,far=false,appearance}){
+    const skin=appearance?.skin||(far?'#ce986f':'#e4ad80'),light=appearance?.skinLight||(far?'#e0ae80':'#f2c495');
     for(const [segment,[a,b]] of [[shoulder,elbow],[elbow,hand]].entries()){
       const rows=Math.max(1,Math.ceil(Math.abs(b.y-a.y)));
       for(let i=0;i<=rows;i++){

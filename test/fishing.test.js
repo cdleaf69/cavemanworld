@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {FISH_SPECIES} from '../src/fish-species.js';
 import assert from 'node:assert/strict';
 import { LAKES, canWalk, lakeAt } from '../src/world.js';
 import { Inventory, RECIPES } from '../src/crafting.js';
@@ -30,7 +31,7 @@ test('a crafted rod catches fish that cook in a fueled campfire',()=>{
   assert.equal(session.reel(1500,inventory).ok,false);
   assert.match(session.update(5000,player),/Fish biting/);
   assert.equal(session.reel(5000,inventory).ok,true);
-  assert.equal(inventory.resources.rawFish,1);
+  assert.equal(FISH_SPECIES.reduce((n,f)=>n+inventory.resources[f.id],0),1);
   const fire=new Campfire(player.x+100,player.y,'surface');
   assert.equal(fire.addFuel(inventory),true);
   assert.equal(fire.addFish(inventory),true);

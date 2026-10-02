@@ -1,7 +1,9 @@
+import {FRONTIER_BIOMES,FRONTIER_PATHS,FRONTIER_CAVE_ENTRIES,MOUNTAINS,mountainAt,plateauAt,coastline} from './frontier-world.js';
+import {roundedPathPoints} from './path-geometry.js';
 import { MATERIALS } from './materials.js';
 import {TOWNS,TOWN_BUILDINGS,buildingForLayer,INTERIOR_SIZE,fixturesForBuilding,VILLAGE_HUTS} from './town-data.js';
 export {TOWNS,TOWN_BUILDINGS,buildingForLayer} from './town-data.js';
-export const SURFACE = { width: 54000, height: 35000, spawn: { x: 9000, y: 7000 } };
+export const SURFACE = { width: 90000, height: 63000, spawn: { x: 9000, y: 7000 } };
 export const CAVES = { width: 16000, height: 8100 };
 export const DEEP_CAVES = { width: 17600, height: 9000, spawn:{x:4700,y:3300} };
 export const WALK_SPEED = 157.5;
@@ -39,6 +41,7 @@ export function blobPoints([cx, cy], [rx, ry], seed, count = 56) {
   }
   return points;
 }
+BIOMES.push(...FRONTIER_BIOMES.map(b=>({...b,color:'#8ac36f',edge:'#658f70'})));
 for (const biome of BIOMES) biome.polygon = blobPoints(biome.center, biome.radii, biome.seed);
 
 export function pointInPolygon(x, y, polygon) {
@@ -51,6 +54,7 @@ export function pointInPolygon(x, y, polygon) {
 }
 
 export function biomeAt(x, y, layer = 'surface') {
+  if(layer==='ocean')return {id:'ocean',name:'The Sunken Reach',color:'#287f99'};
   const building=buildingForLayer(layer);if(building)return {id:building.biome||'heartlands',name:building.name,color:'#526858'};
   if(EXTRA_CAVES[layer]){const room=EXTRA_CAVES[layer].rooms.reduce((best,r)=>Math.hypot(x-r.x,y-r.y)<Math.hypot(x-best.x,y-best.y)?r:best);return {id:room.biome,name:room.name,color:'#655782',edge:'#ad93c8'};}
   if (layer === 'cave') return { id: 'cave', name: 'Deep Below', color: '#665c59', edge: '#a78867' };
@@ -98,7 +102,7 @@ export const LAKES = [
 export function lakeShape(lake,angle){const seed=LAKES.indexOf(lake)*1.37;return .87+.085*Math.sin(angle*3+seed)+.045*Math.cos(angle*5-seed);}
 export function lakeDistance(lake,x,y){const dx=(x-lake.x)/lake.rx,dy=(y-lake.y)/lake.ry;return (Math.hypot(dx,dy)-lakeShape(lake,Math.atan2(dy,dx)))*Math.min(lake.rx,lake.ry);}
 export function lakeOutline(lake){return Array.from({length:80},(_,i)=>{const a=i*Math.PI/40,r=lakeShape(lake,a);return [lake.x+Math.cos(a)*lake.rx*r,lake.y+Math.sin(a)*lake.ry*r];});}
-export function oceanDistance(x,y){return 52000+240*Math.sin(y/1600)+100*Math.sin(y/530)-x;}
+export function oceanDistance(x,y){return coastline(y)-x;}
 export function waterAt(x,y,layer='surface'){
  if(layer!=='surface')return false;
  if(oceanDistance(x,y)<0||lakeAt(x,y))return true;
@@ -204,13 +208,15 @@ for(const town of TOWNS){
  for(const b of TOWN_BUILDINGS.filter(b=>b.town===town.id&&b.id!=='lucky-hearth')){const side=b.x+(b.x<town.x?-250:250);PATHS.push({name:`${b.name} Lane`,points:b.type==='casino'?[[town.x,town.y],[town.x,town.y+280],[b.x,town.y+280],[b.x,b.y+126]]:b.type==='house'?[[town.x,town.y],[town.x,town.y+950],[b.x,town.y+950],[b.x,b.y+126]]:[[town.x,town.y],[b.x,town.y],[b.x,b.y+126]]});}
 }
 PATHS.push({name:'Lucky Hearth Lane',points:[[10600,7600],[10600,7660],[8800,7660],[8800,7626]]});
+PATHS.push(...FRONTIER_PATHS);
+for(const path of PATHS){path.width=/Lane|Approach/.test(path.name)?88:112;path.points=roundedPathPoints(path.points,path.width===88?80:120);}
 export const CASINO_BUILDING=TOWN_BUILDINGS[0];
 export const CASINO={width:1100,height:850,spawn:{x:550,y:700}};
 export const BUILDING_PORTALS=TOWN_BUILDINGS.map(b=>({id:b.id,name:b.name,surface:{x:b.x,y:b.y+(b.hut?160:126)},[b.layer]:{x:550,y:755}}));
 export const CASINO_FIXTURES=[{id:'slots',x:320,y:205,width:290,height:90,activity:{x:320,y:300}},{id:'blackjack',x:780,y:385,width:260,height:150,activity:{x:780,y:505}}];
 export function casinoActivityAt(x,y,range=160){return CASINO_FIXTURES.find(f=>Math.hypot(x-f.activity.x,y-f.activity.y)<range)||null;}
-export const LAYERS={surface:SURFACE,cave:CAVES,deep:DEEP_CAVES,...EXTRA_CAVES,...Object.fromEntries(TOWN_BUILDINGS.map(b=>[b.layer,INTERIOR_SIZE]))};
-export const LAYER_NAMES={surface:'Surface',cave:'Upper Caves · Depth 1',deep:'Deep Caves · Depth 2',abyss:'Abyss · Depth 3',core:'World Core · Depth 4',casino:'The Lucky Hearth'};
+export const LAYERS={surface:SURFACE,ocean:SURFACE,cave:CAVES,deep:DEEP_CAVES,...EXTRA_CAVES,...Object.fromEntries(TOWN_BUILDINGS.map(b=>[b.layer,INTERIOR_SIZE]))};
+export const LAYER_NAMES={surface:'Surface',ocean:'Ocean Floor',cave:'Upper Caves · Depth 1',deep:'Deep Caves · Depth 2',abyss:'Abyss · Depth 3',core:'World Core · Depth 4',casino:'The Lucky Hearth'};
 Object.assign(LAYER_NAMES,Object.fromEntries(TOWN_BUILDINGS.map(b=>[b.layer,b.name])));
 export function caveGeometry(layer){return EXTRA_CAVES[layer]||{rooms:layer==='deep'?DEEP_ROOMS:CAVE_ROOMS,tunnels:layer==='deep'?DEEP_TUNNELS:TUNNELS};}
 export function portalDestination(portal,layer){return Object.keys(LAYERS).find(key=>key!==layer&&portal[key]);}
@@ -222,6 +228,7 @@ const chamberNames=['Elder Chamber','Frost Vault','Redstone Grotto','Mire Hollow
 const roomBiome=r=>biomeAt(r.x,r.y,'surface').id;
 const upper=PORTALS.map((p,i)=>{p.cave={...p.surface};return {...p.cave,r:1400+(i%3)*160,name:chamberNames[i],biome:roomBiome(p.surface)};});
 upper.push({x:9000,y:7000,r:1700,name:'Echo Hall',biome:'woodland'},{x:19000,y:12000,r:1900,name:'The Deep Hearth',biome:'badlands'},{x:28500,y:20500,r:1800,name:'Iron Lode',biome:'badlands'},{x:15500,y:25500,r:1700,name:'Glowpool',biome:'marsh'},{x:41500,y:19000,r:2000,name:'The Root Cathedral',biome:'woodland'});
+for(const e of FRONTIER_CAVE_ENTRIES){const point={x:e.x,y:e.y};PORTALS.push({id:e.id,name:e.name,surface:{...point},cave:{...point}});upper.push({...point,r:1700,name:e.name,biome:roomBiome(point)});}
 function connectedTunnels(rooms){
  const connected=[0],remaining=new Set(rooms.slice(1).map((_,i)=>i+1)),tunnels=[],edges=new Set();
  const link=(a,b)=>{const key=[a,b].sort((x,y)=>x-y).join(':');if(edges.has(key))return;edges.add(key);const p=rooms[a],q=rooms[b];tunnels.push({width:620,points:[[p.x,p.y],[(p.x+q.x)/2,(p.y+q.y)/2],[q.x,q.y]]});};
@@ -231,7 +238,7 @@ function connectedTunnels(rooms){
 }
 CAVE_ROOMS.splice(0,CAVE_ROOMS.length,...upper);TUNNELS.splice(0,TUNNELS.length,...connectedTunnels(upper));
 Object.assign(CAVES,{width:SURFACE.width,height:SURFACE.height,spawn:{...upper[12]}});
-const deep=upper.map((r,i)=>({...r,r:r.r+250,name:['Root Descent','Frost Root','Prism Gallery','Bone Trench','Ember Deep','Jade Abyss','Aurora Crypt','Obsidian Throne','Forgotten Gardens','Lotus Deep','Aurora Deep','Ember Coast Deep','Black Heart','Moon Vault','Sunstone Vault','Bogiron Garden','Jade Cathedral'][i],biome:'deep-'+r.biome}));
+const deep=upper.map((r,i)=>({...r,r:r.r+250,name:['Root Descent','Frost Root','Prism Gallery','Bone Trench','Ember Deep','Jade Abyss','Aurora Crypt','Obsidian Throne','Forgotten Gardens','Lotus Deep','Aurora Deep','Ember Coast Deep','Black Heart','Moon Vault','Sunstone Vault','Bogiron Garden','Jade Cathedral'][i]||r.name+' Deep',biome:'deep-'+r.biome}));
 DEEP_ROOMS.splice(0,DEEP_ROOMS.length,...deep);DEEP_TUNNELS.splice(0,DEEP_TUNNELS.length,...connectedTunnels(deep));
 Object.assign(DEEP_CAVES,{width:SURFACE.width,height:SURFACE.height,spawn:{x:deep[12].x,y:deep[12].y}});
 const descentRooms=[12,1,4,15,5,7];
@@ -278,7 +285,9 @@ export function distanceToSegment(x, y, x1, y1, x2, y2) {
 export function canWalk(x, y, layer = 'surface', radius = PLAYER_RADIUS, swimming = false) {
   const bounds = LAYERS[layer]||SURFACE;
   if (x < radius || y < radius || x > bounds.width - radius || y > bounds.height - radius) return false;
+  if(layer==='ocean')return oceanDistance(x,y)<-20;
   if (layer === 'surface') {
+    const mountain=mountainAt(x,y);if(mountain&&!plateauAt(x,y)&&!mountain.trail.slice(1).some((b,i)=>distanceToSegment(x,y,...mountain.trail[i],...b)<175-radius))return false;
     if(TOWN_BUILDINGS.some(b=>!b.hut&&Math.abs(x-b.x)<b.width/2+radius&&Math.abs(y-b.y)<b.height/2+radius))return false;
     if (HUTS.some(h => Math.hypot(x - h.x, y - h.y) < h.r + radius)) return false;
     if(swimming)return true;
@@ -322,6 +331,8 @@ export function nearestPortal(x, y, layer, range = 125) {
 
 export function nearbyPlace(x, y, layer) {
   const building=buildingForLayer(layer);if(building)return building.name;
+  if(layer==='surface'&&mountainAt(x,y))return mountainAt(x,y).name;
+  if(layer==='ocean')return 'The Sunken Reach';
   if(layer==='surface'){const town=TOWNS.find(t=>Math.hypot(x-t.x,y-t.y)<850);if(town)return town.name;}
   const places = LANDMARKS.filter(l => l.layer === layer);
   let nearest = null, distance = layer === 'surface' ? 580 : 700;

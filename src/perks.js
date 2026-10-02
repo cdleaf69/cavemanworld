@@ -2,6 +2,9 @@ import { MATERIALS } from './materials.js';
 // Every armor has one identity perk. Matching equipment uses the same baseline
 // within a cave depth; biome materials choose which multiplier they improve.
 export const ARMOR_PERKS=Object.freeze({
+  'tidekeeper-armor':{biome:'Ocean',stat:'health',base:1.35,tools:['fishing-rod','reef-rod','abyss-rod']},
+  'summit-armor':{biome:'Mountains',stat:'speed',base:1.35,tools:['grappling-tool','crystal-glider','powered-drill']},
+  'diver-wrap':{biome:'Ocean',stat:'defense',base:1.22,tools:['fishing-rod','reef-rod','abyss-rod']},
   'leaf-wrap':{biome:'Heartlands',stat:'health',base:1.18,tools:['hand-rock','stone-axe','stone-pickaxe']},
   'wood-vest':{biome:'Elderwood',stat:'speed',base:1.18,tools:['wood-club','stone-axe','stone-pickaxe']},
   'hide-wrap':{biome:'Woodland',stat:'power',base:1.20,tools:['bone-club','stone-axe','stone-pickaxe']},

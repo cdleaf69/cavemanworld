@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Inventory, RECIPES, RESOURCES } from '../src/crafting.js';
 import { Progression } from '../src/progression.js';
+import { FRONTIER_RECIPES } from '../src/frontier-items.js';
 import { MATERIALS } from '../src/materials.js';
 import { armorEffects } from '../src/perks.js';
 import { grantBetaItem } from '../src/beta.js';
@@ -18,7 +19,7 @@ test('XP unlocks upgrades and cannot exceed level twenty',()=>{
 });
 test('every biome depth has equal base equipment stats and a complete set bonus',()=>{
   for(const m of MATERIALS){
-    const recipes=RECIPES.filter(r=>r.tier===m.id&&!['sword','spear','warhammer'].includes(r.type));assert.equal(recipes.length,4);
+    const recipes=RECIPES.filter(r=>r.tier===m.id&&!FRONTIER_RECIPES.includes(r)&&(r.category==='gear'||['axe','pickaxe','club'].includes(r.type)));assert.equal(recipes.length,4);
     const inv=new Inventory({level:20});for(const id of RESOURCES)inv.add(id,100);
     for(const r of recipes){assert.equal(r.level,m.depth*3);assert.equal(r.defense,r.category==='gear'?m.defense:undefined);assert.equal(r.damage,m.damage+(r.type==='club'?2:0));assert.equal(inv.craft(r.id).ok,true);}
     inv.equip(recipes.find(r=>r.category==='gear').id);inv.equip(`${m.id}-axe`);const effects=armorEffects(inv);assert.ok(effects.boosted);assert.equal(effects.perk.stat,m.stat);assert.ok(effects.stats[m.stat]>effects.perk.base);

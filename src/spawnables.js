@@ -60,7 +60,7 @@ export class ResourceNode {
 
 export class Tool {
   constructor({ id, type, tier, durability = 100, power, yield:harvestYield, damage,range=120,cooldown=420,knockback=0 }) {
-    if (!['pickaxe', 'axe', 'rock', 'club', 'rod', 'bow', 'slingshot','sword','spear','warhammer'].includes(type)) throw new Error(`Unknown tool: ${type}`);
+    if (!['pickaxe', 'axe', 'rock', 'club', 'rod', 'bow', 'slingshot','sword','spear','warhammer','transport','grapple'].includes(type)) throw new Error(`Unknown tool: ${type}`);
     if (!TIERS[tier]) throw new Error(`Unknown tier: ${tier}`);
     Object.assign(this, { id, type, tier, durability,range,cooldown,knockback, power:power??(tier==='iron'?3:1), yield:harvestYield??(tier==='iron'?6:3), damage:damage??2 });
   }

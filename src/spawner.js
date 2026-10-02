@@ -1,3 +1,4 @@
+import {mountainAt} from './frontier-world.js';
 import { caveGeometry,TOWNS,TOWN_BUILDINGS,LANDMARKS,waterAt } from './world.js';
 import { PATHS, TUNNELS, DEEP_TUNNELS, PORTALS, DESCENTS, canWalk, distanceToSegment, biomeAt } from './world.js';
 import { Decoration, ResourceNode, ORE_RARITY } from './spawnables.js';
@@ -5,13 +6,19 @@ import { Decoration, ResourceNode, ORE_RARITY } from './spawnables.js';
 function seedFor(text) { let h=2166136261;for(const char of text){h^=char.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0; }
 function random(seed) { let s=seed;return () => {s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;}; }
 function bounds(points) { return points.reduce((b,p)=>({minX:Math.min(b.minX,p.x),maxX:Math.max(b.maxX,p.x),minY:Math.min(b.minY,p.y),maxY:Math.max(b.maxY,p.y)}),{minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity}); }
-function nearPath(x,y) {
-  for(const path of PATHS)for(let i=1;i<path.points.length;i++)if(distanceToSegment(x,y,...path.points[i-1],...path.points[i])<58+14*Math.sin(x*.007+y*.011))return true;
-  return false;
+// Local path buckets keep curved trail clearance checks independent of world size.
+const pathCells=new Map();
+for(const path of PATHS)for(let i=1;i<path.points.length;i++){
+ const a=path.points[i-1],b=path.points[i],pad=path.width/2+20,segment={a,b,clearance:path.width/2+12};
+ for(let cy=Math.floor((Math.min(a[1],b[1])-pad)/512);cy<=Math.floor((Math.max(a[1],b[1])+pad)/512);cy++)for(let cx=Math.floor((Math.min(a[0],b[0])-pad)/512);cx<=Math.floor((Math.max(a[0],b[0])+pad)/512);cx++){const key=`${cx}:${cy}`;if(!pathCells.has(key))pathCells.set(key,[]);pathCells.get(key).push(segment);}
+}
+function nearPath(x,y){
+ return (pathCells.get(`${Math.floor(x/512)}:${Math.floor(y/512)}`)||[]).some(s=>distanceToSegment(x,y,...s.a,...s.b)<s.clearance+4*Math.sin(x*.007+y*.011));
 }
 function nearPortal(x,y,layer) { return [...PORTALS,...DESCENTS].some(p=>p[layer]&&Math.hypot(x-p[layer].x,y-p[layer].y)<210); }
 function nearTunnel(x,y,layer){const {tunnels}=caveGeometry(layer);return tunnels.some(t=>t.points.some((p,i)=>i>0&&distanceToSegment(x,y,...t.points[i-1],...p)<95));}
 function valid(x,y,zone,radius) {
+  if(zone.layer==='surface'&&mountainAt(x,y))return false;
   if(!zone.contains(x,y)||!canWalk(x,y,zone.layer,radius))return false;
   if(zone.id.startsWith('habitat-')&&biomeAt(x,y).id!==zone.biome)return false;
   if(nearPortal(x,y,zone.layer))return false;
@@ -44,6 +51,7 @@ export function populateWorld(zones,registry) {
   const crowdedBushes=(x,y,layer)=>{let count=0;return nearby(x,y,layer,400,p=>p.kind==='bush'&&++count>=5);};
   const remember=(x,y,layer,kind,scale)=>{const key=`${layer}:${Math.floor(x/160)}:${Math.floor(y/160)}`;if(!spatial.has(key))spatial.set(key,[]);spatial.get(key).push({x,y,kind,scale});};
   for(const zone of zones.zones) {
+    if(zone.allowedTypes.includes('frontier')||zone.id==='ocean-harvest'||zone.id.startsWith('summit-harvest-'))continue;
     if(zone.id==='village-starters')continue; // Curated safe first steps around the village.
     const rng=random(seedFor(zone.id)),box=bounds(zone.vertices),types=zone.allowedTypes.filter(t=>t!=='ground'&&t!=='decoration');
     const habitat=zone.id.startsWith('habitat-');
@@ -84,7 +92,8 @@ export function populateWorld(zones,registry) {
       const count=habitat?Math.round(target*.65):zone.layer==='surface'&&zone.allowedTypes.includes('tree')?90:zone.layer==='surface'?50:40;
       for(let attempt=0,created=0;attempt<count*35&&created<count;attempt++){
         const x=Math.round(box.minX+rng()*(box.maxX-box.minX)),y=Math.round(box.minY+rng()*(box.maxY-box.minY));
-        if(!zone.contains(x,y)||!canWalk(x,y,zone.layer,4)||nearPortal(x,y,zone.layer)||(habitat&&biomeAt(x,y).id!==zone.biome))continue;
+        if(zone.layer==='surface'&&mountainAt(x,y))continue;
+  if(!zone.contains(x,y)||!canWalk(x,y,zone.layer,4)||nearPortal(x,y,zone.layer)||(habitat&&biomeAt(x,y).id!==zone.biome))continue;
         const kind=zone.layer!=='surface'?(zone.layer==='cave'?'mushroom':'crystal'):zone.biome==='marsh'?'reed':zone.biome==='badlands'?'bone':zone.biome==='volcanic'?'ash':['flower','fern','grass','mushroom'][Math.floor(rng()*4)];
         registry.addDecoration(new Decoration({id:`${zone.id}-dec-${created++}`,kind,x,y,layer:zone.layer,zoneId:zone.id}));
       }
@@ -96,7 +105,7 @@ export function populateWorld(zones,registry) {
 export function populateSpawnSupplies(registry,spawn){
  const seeds=[['bush','leaves',80,60,28,2],['tree','wood',150,-90,43,4],['rock','stone',-160,-110,34,5],...Array.from({length:8},(_,i)=>['ground','stone',Math.cos(i*.785)*180,Math.sin(i*.785)*180,12,1])];
  for(const [i,[kind,resource,dx,dy,radius,quantity]] of seeds.entries()){
-  const x=spawn.x+dx,y=spawn.y+dy;if(!canWalk(x,y,'surface',radius)||waterAt(x,y))continue;
+  const x=spawn.x+dx,y=spawn.y+dy;if(mountainAt(x,y)||!canWalk(x,y,'surface',radius)||waterAt(x,y))continue;
   registry.addNode(new ResourceNode({id:`spawn-supply-${i}`,zoneId:'spawn-supplies',kind,resource,x,y,radius,quantity,layer:'surface'}));
  }
 }

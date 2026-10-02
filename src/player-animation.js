@@ -21,8 +21,9 @@ export function playerArmPose(player,time,type=null,fishing=null){
   const progress=remaining?clamp(1-remaining/250):0;
   const attack=remaining?Math.sin(progress*Math.PI):0;
   const heldFlip=type==='rod'&&fishing?.active?fishing.castPoint.x<player.x:flip;
-  const heldArm=heldFlip===flip?1:0;
-  const arms=(side?[14.5,29.5]:[11.5,32.5]).map((x,index)=>{
+  const nearArm=side&&flip?0:1;
+  const heldArm=heldFlip===flip?nearArm:1-nearArm;
+  const arms=(side?(flip?[29.5,14.5]:[14.5,29.5]):[11.5,32.5]).map((x,index)=>{
     // Both side-facing arms lean in the same direction. Forward walking alternates naturally.
     const dx=side?4+stride*(index===0?1:-1):0;
     const dy=back?-4:0;
@@ -30,16 +31,17 @@ export function playerArmPose(player,time,type=null,fishing=null){
     let elbow={x:x+dx*(side?.3:.6),y:(side?39:38)+dy*.3};
     if(side&&player.moving){
       // Opposing shoulder swings, with relaxed elbows and hands below the waist.
-      const beat=stride*(index===0?1:-1),angle=beat*.58;
-      elbow={x:x+Math.sin(angle)*8,y:31+Math.cos(angle)*8};
-      hand.x=elbow.x+Math.sin(angle+.16)*9;hand.y=elbow.y+Math.cos(angle+.16)*9;
+      const beat=stride*(index===0?1:-1),angle=beat*.23;
+      elbow={x:x+Math.sin(angle)*7.5,y:31+Math.cos(angle)*7.5};
+      hand.x=elbow.x+Math.sin(angle+.12)*7.5;hand.y=elbow.y+Math.cos(angle+.12)*7.5;
     }
     if(type&&index===heldArm){
-      hand.y-=(side&&player.moving?1.5:5)+attack*4;
+      hand.y-=(side?4:5)+attack*4;
+      if(side){hand.x=x+4+attack*2;hand.y=42+stride*.45-attack*4;elbow={x:x+1.5,y:37.5};}
       hand.x+=(side?1:2)+attack*(type==='rock'?6:2);
       if(type==='rod'&&fishing?.active)hand.y+=Math.sin(time*.008)*.4;
     }
-    return {shoulder:{x,y:31},elbow,hand,far:side&&index===0};
+    return {shoulder:{x,y:31},elbow,hand,far:side&&index===(flip?1:0)};
   });
   return {arms,flip,heldFlip,heldArm,stride,progress,side,back,attacking:remaining>0};
 }

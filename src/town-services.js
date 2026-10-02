@@ -1,7 +1,8 @@
+import {fishSpecies} from './fish-species.js';
 import {RESOURCES,RECIPES} from './crafting.js';
 import {MATERIALS} from './materials.js';
 export const HOUSE_RESPAWN_MS=120000;
-export function resourcePrice(id){const m=MATERIALS.find(m=>m.id===id);return m?[0,4,10,18,30][m.depth]:({sinew:6,fang:9,essence:20,iron:4,hide:3,bone:3,wing:4,shell:5,venom:5,glimmer:18,cookedMeat:4,cookedFish:4,meat:2,rawFish:2,wood:2}[id]||1);}
+export function resourcePrice(id){const fish=fishSpecies(id);if(fish)return fish.value;const prices={rawMarijuana:8,driedMarijuana:25,skyCrystal:45,alpineFiber:12,eagleFeather:22,bigfootFur:120,pearl:35,coral:9,seaScale:18,seaEssence:65,sunkenRelic:90};if(prices[id])return prices[id];const m=MATERIALS.find(m=>m.id===id);return m?[0,4,10,18,30][m.depth]:({sinew:6,fang:9,essence:20,iron:4,hide:3,bone:3,wing:4,shell:5,venom:5,glimmer:18,cookedMeat:4,cookedFish:4,meat:2,rawFish:2,wood:2}[id]||1);}
 export function tradeResource(inventory,id,amount,buy){
  if(!RESOURCES.includes(id)||![1,5].includes(amount))return {ok:false,message:'Choose a resource and quantity.'};
  const price=resourcePrice(id)*(buy?2:1)*amount;

@@ -1,3 +1,5 @@
+import {FISH_SPECIES} from './fish-species.js';
+import {FRONTIER_RESOURCES} from './frontier-items.js';
 import { MATERIALS } from './materials.js';
 import { RECIPES, RESOURCES } from './crafting.js';
 
@@ -28,6 +30,7 @@ const RESOURCE_DETAILS={
   glimmer:['Glimmer','Shiny creatures, especially deep below','Used for rare moonstone equipment.','✺'],
 };
 
+Object.assign(RESOURCE_DETAILS,FRONTIER_RESOURCES);for(const f of FISH_SPECIES)RESOURCE_DETAILS[f.id]=[f.name,'Lake or ocean fishing',`${f.length} cm · sells for ${f.value} coins · raw cooking ingredient.`,'◁'];
 export function resourceName(id){return RESOURCE_DETAILS[id]?.[0]||id;}
 for(const m of MATERIALS)RESOURCE_DETAILS[m.id]=[m.name,`Depth ${m.depth} · ${m.biome} caves`,`Level ${m.level} equipment · ${m.stat} armor bonus. Equal base strength to other biome materials at this depth.`,'◆'];
 export function visibleResources(inventory){return RESOURCES.filter(id=>(inventory.resources[id]||0)>0);}

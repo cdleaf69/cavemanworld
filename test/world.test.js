@@ -15,7 +15,7 @@ test('river crossings stay short and connected to their paths',()=>{
 
 test('surface uses the requested faster walking and sprint speeds', () => {
   assert.equal(WALK_SPEED,157.5);
-  assert.equal(SURFACE.width*SURFACE.height,36000*21000*2.5);
+  assert.equal(SURFACE.width*SURFACE.height,36000*21000*2.5*3);
   assert.equal(CAVES.width*CAVES.height,SURFACE.width*SURFACE.height);
   assert.equal(DEEP_CAVES.width*DEEP_CAVES.height,SURFACE.width*SURFACE.height);
   assert.equal(SPRINT_MULTIPLIER,2.5);

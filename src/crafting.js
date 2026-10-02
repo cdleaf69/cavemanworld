@@ -1,3 +1,5 @@
+import {FISH_SPECIES} from './fish-species.js';
+import {FRONTIER_RECIPES,FRONTIER_RESOURCES} from './frontier-items.js';
 import { MATERIALS } from './materials.js';
 import { Progression } from './progression.js';
 import { Gear, Tool } from './spawnables.js';
@@ -48,11 +50,12 @@ export const RECIPES = [
   { id:'moonstone-armor', name:'Moonstone Armor', category:'gear', slot:'body', tier:'moonstone', defense:8, cost:{moonstone:7,shell:2,glimmer:1}, detail:'Moon Vault armor · defense perk.' },
 ];
 
+RESOURCES.push(...Object.keys(FRONTIER_RESOURCES),...FISH_SPECIES.map(f=>f.id));RECIPES.push(...FRONTIER_RECIPES);
 for(const material of MATERIALS){
   if(!RESOURCES.includes(material.id))RESOURCES.push(material.id);
   for(const type of ['axe','pickaxe','club','armor']){
     const category=type==='armor'?'gear':'tool';
-    let recipe=RECIPES.find(r=>r.tier===material.id&&(category==='gear'?r.category==='gear':r.type===type));
+    let recipe=RECIPES.find(r=>!FRONTIER_RECIPES.includes(r)&&r.tier===material.id&&(category==='gear'?r.category==='gear':r.type===type));
     if(!recipe){recipe={id:`${material.id}-${type}`,name:`${material.name} ${type[0].toUpperCase()+type.slice(1)}`,category,tier:material.id,type:category==='tool'?type:undefined,slot:category==='gear'?'body':undefined,cost:{[material.id]:category==='gear'?7:4,wood:2},detail:`Depth ${material.depth} ${material.biome} equipment.`};RECIPES.push(recipe);}
     Object.assign(recipe,{level:material.level,depth:material.depth,defense:category==='gear'?material.defense:undefined,damage:material.damage+(type==='club'?2:0),power:material.power,yield:material.yield});
     recipe.detail=`Depth ${material.depth} · ${material.biome} · ${category==='gear'?`${material.defense} defense`:`${recipe.damage} damage · ${material.yield} harvest yield`}.`;
@@ -70,7 +73,7 @@ export class Inventory {
     this.progression=new Progression(level);
     this.resources = Object.fromEntries(RESOURCES.map(resource=>[resource,0]));
     this.owned = new Map();
-    this.structures={campfire:0};
+    this.structures=Object.fromEntries(RECIPES.filter(r=>r.category==='structure').map(r=>[r.id,0]));
     this.equippedTool = null;
     this.equippedGear = null;
   }
@@ -80,11 +83,12 @@ export class Inventory {
   }
   consume(resource,amount){if(!RESOURCES.includes(resource)||!Number.isFinite(amount)||amount<=0||this.resources[resource]<amount)return false;this.resources[resource]-=amount;return true;}
   canCraft(recipe) {
-    return this.progression.level>=(recipe.level||1) && (recipe.category==='structure'||!this.owned.has(recipe.id)) && (!recipe.requires || this.owned.has(recipe.requires)) && Object.entries(recipe.cost).every(([resource, amount]) => this.resources[resource] >= amount);
+    return !recipe.questOnly && this.progression.level>=(recipe.level||1) && (recipe.category==='structure'||!this.owned.has(recipe.id)) && (!recipe.requires || this.owned.has(recipe.requires)) && Object.entries(recipe.cost).every(([resource, amount]) => this.resources[resource] >= amount);
   }
   craft(recipeId) {
     const recipe = RECIPES.find(r => r.id === recipeId);
     if (!recipe) return { ok:false, message:'Unknown recipe' };
+    if(recipe.questOnly)return {ok:false,message:'Complete the fisherman’s ten quests to earn this armor.'};
     if(this.progression.level<(recipe.level||1))return {ok:false,message:`Requires level ${recipe.level}`};
     if (recipe.category!=='structure'&&this.owned.has(recipe.id)) return { ok:false, message:'Already crafted' };
     if(recipe.requires&&!this.owned.has(recipe.requires))return {ok:false,message:`Craft ${RECIPES.find(r=>r.id===recipe.requires).name} first`};

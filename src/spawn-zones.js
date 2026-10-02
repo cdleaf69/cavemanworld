@@ -1,10 +1,12 @@
+import {MOUNTAINS} from './frontier-world.js';
+import {FRONTIER_RESOURCES} from './frontier-items.js';
 import { MATERIALS } from './materials.js';
 import { EXTRA_CAVES } from './world.js';
 import { pointInPolygon, BIOMES, SURFACE, CAVE_ROOMS, DEEP_ROOMS } from './world.js';
 
-export const SPAWN_TYPES = ['ground', 'tree', 'bush', 'rock', 'ore', 'decoration'];
-export const RESOURCE_TYPES = [...new Set([...MATERIALS.map(m=>m.id),'leaves', 'sticks', 'wood', 'stone', 'iron', 'copper', 'quartz', 'amber', 'obsidian', 'moonstone'])];
-export const BIOME_IDS = ['heartlands', 'woodland', 'tundra', 'marsh', 'badlands', 'volcanic', 'cave', 'deep-woodland', 'deep-tundra', 'deep-marsh', 'deep-badlands', 'deep-volcanic', 'deep'];
+export const SPAWN_TYPES = ['ground', 'tree', 'bush', 'rock', 'ore', 'decoration', 'frontier'];
+export const RESOURCE_TYPES = [...new Set([...MATERIALS.map(m=>m.id),...Object.keys(FRONTIER_RESOURCES),'leaves', 'sticks', 'wood', 'stone', 'iron', 'copper', 'quartz', 'amber', 'obsidian', 'moonstone'])];
+export const BIOME_IDS = ['heartlands', 'woodland', 'tundra', 'marsh', 'badlands', 'volcanic', 'cave', 'deep-woodland', 'deep-tundra', 'deep-marsh', 'deep-badlands', 'deep-volcanic', 'deep','mountains','ocean'];
 
 // Polygons are editable boundaries in world coordinates. No terrain renderer consumes
 // these as objects; a future spawner can query them and create nodes independently.
@@ -49,6 +51,8 @@ for(const [layer,rooms,depth] of [['cave',CAVE_ROOMS,1],['deep',DEEP_ROOMS,2],..
  const biome=r.biome.replace('deep-',''),m=MATERIALS.find(m=>m.depth===depth&&m.biome===biome)||MATERIALS.find(m=>m.depth===depth);
  DEFAULTS.push([`${layer}-chamber-${i}`,r.name,layer,biome,['ore','rock','ground','decoration'],['stone','iron',m.id],Array.from({length:20},(_,j)=>[r.x+Math.cos(j*Math.PI/10)*r.r*.94,r.y+Math.sin(j*Math.PI/10)*r.r*.94])]);
 }
+for(const m of MOUNTAINS)DEFAULTS.push(['summit-harvest-'+m.id,m.name+' Summit Harvests','surface','mountains',['frontier'],['rawMarijuana','skyCrystal','alpineFiber','eagleFeather'],Array.from({length:20},(_,i)=>[m.x+Math.cos(i*Math.PI/10)*m.rx*.36,m.y+Math.sin(i*Math.PI/10)*m.ry*.36])]);
+DEFAULTS.push(['ocean-harvest','Ocean Floor Forage & Wrecks','ocean','ocean',['frontier'],['coral','pearl','sunkenRelic'],[[86800,30],[89970,30],[89970,62970],[86800,62970]]]);
 export const defaultZones = () => DEFAULTS.map(([id,name,layer,biome,allowedTypes,resources,vertices]) => ({
   id, name, layer, biome, allowedTypes: [...new Set([...allowedTypes,...(resources.includes('stone')?['ground']:[])])], resources: [...resources,...(allowedTypes.includes('bush')?['sticks']:[])],
   vertices: vertices.map(([x,y]) => ({x,y})),
@@ -77,12 +81,13 @@ export class SpawnZoneManager {
   }
   load() {
     try {
-      const saved=JSON.parse(this.storage?.getItem('embervale.spawnZones.v4'));
-      if(Array.isArray(saved)&&saved.length&&saved.every(z=>z.id&&z.vertices?.length>=3))return saved.map(z=>new SpawnZone(z));
+      const saved=JSON.parse(this.storage?.getItem('embervale.spawnZones.v5'));
+      if(Array.isArray(saved)&&saved.length&&saved.every(z=>z.id&&z.vertices?.length>=3)){const ids=new Set(saved.map(z=>z.id));return [...saved,...defaultZones().filter(z=>!ids.has(z.id))].map(z=>new SpawnZone(z));}
+      const old=JSON.parse(this.storage?.getItem('embervale.spawnZones.v4'));if(Array.isArray(old)&&old.length){const defaults=defaultZones(),preserved=old.filter(z=>z.id!=='habitat-meadows'&&z.vertices?.length>=3),oldIds=new Set(preserved.map(z=>z.id));return [...preserved,...defaults.filter(z=>!oldIds.has(z.id))].map(z=>new SpawnZone(z));}
     } catch { /* invalid saved data: return to defaults */ }
     return defaultZones().map(z => new SpawnZone(z));
   }
-  save() { this.storage?.setItem('embervale.spawnZones.v4', JSON.stringify(this.zones)); }
+  save() { this.storage?.setItem('embervale.spawnZones.v5', JSON.stringify(this.zones)); }
   reset() { this.zones = defaultZones().map(z => new SpawnZone(z)); this.save(); }
   at(x,y,layer) { return [...this.zones].reverse().find(z => z.layer === layer && z.contains(x,y)) || null; }
   forLayer(layer) { return this.zones.filter(z => z.layer === layer); }

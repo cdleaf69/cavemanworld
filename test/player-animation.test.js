@@ -36,3 +36,19 @@ test('fishing line remains on the rod tip during mirrored swings and jumps',()=>
     assert.equal(held.flip,targetX<player.x);
   }
 });
+
+
+test('side arm swings stay compact and the far arm swaps with facing',()=>{
+ const east=playerArmPose({facing:0,moving:true},145),west=playerArmPose({facing:Math.PI,moving:true},145);
+ assert.equal(east.arms[0].far,true);assert.equal(east.arms[1].far,false);
+ assert.equal(west.arms[0].far,false);assert.equal(west.arms[1].far,true);
+ for(const facing of [0,Math.PI]){
+  const poses=Array.from({length:24},(_,i)=>playerArmPose({facing,moving:true},i*25));
+  for(let arm=0;arm<2;arm++){
+   const hands=poses.map(p=>p.arms[arm].hand.x);
+   assert.ok(Math.max(...hands)-Math.min(...hands)<7);
+   for(const p of poses){const a=p.arms[arm];assert.ok(a.hand.y>a.elbow.y);assert.ok(Math.hypot(a.hand.x-a.elbow.x,a.hand.y-a.elbow.y)<8);}
+  }
+  for(const time of [0,145,290,435]){const pose=playerArmPose({facing,moving:true},time,'bow');assert.equal(pose.arms[pose.heldArm].far,false);}
+ }
+});
