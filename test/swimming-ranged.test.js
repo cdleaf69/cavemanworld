@@ -9,7 +9,7 @@ test('organic shore geometry agrees with water detection and players can swim wi
   for(const [x,y] of lakeOutline(lake))assert.ok(Math.abs(lakeDistance(lake,x,y))<1e-8);
   const radii=lakeOutline(lake).map(([x,y])=>Math.hypot((x-lake.x)/lake.rx,(y-lake.y)/lake.ry));assert.ok(Math.max(...radii)-Math.min(...radii)>.12);
  }
- assert.ok(oceanDistance(89900,20000)<0);assert.equal(waterAt(89900,20000),true);assert.equal(canWalk(89900,20000,'surface',18,true),true);
+ assert.ok(oceanDistance(134000,20000)<0);assert.equal(waterAt(134000,20000),true);assert.equal(canWalk(134000,20000,'surface',18,true),true);
  for(const h of HUTS)assert.equal(canWalk(h.x,h.y,'surface',18,true),false);
  assert.equal(startJump({swimming:true}),false);
 });

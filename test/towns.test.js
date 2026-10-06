@@ -17,7 +17,7 @@ test('shop transactions conserve resources and reject overspending or oversellin
  assert.equal(tradeResource(inv,'wood',5,false).ok,true);assert.equal(inv.coins,50);assert.equal(inv.resources.wood,0);
  assert.equal(tradeResource(inv,'wood',1,false).ok,false);assert.equal(tradeResource(inv,'adamantite',5,true).ok,false);assert.equal(inv.coins,50);assert.equal(tradeResource(inv,'stone',-1,false).ok,false);
 });
-function forgeInventory(club){const inv=new Inventory({level:20});for(const r of Object.keys(inv.resources))inv.resources[r]=100;inv.coins=1000;inv.craft('stone-axe');inv.craft(club);inv.equip(club);return inv;}
+function forgeInventory(club){const inv=new Inventory({level:20,tableTier:6});for(const r of Object.keys(inv.resources))inv.resources[r]=100;inv.coins=1000;inv.craft('stone-axe');inv.craft(club);inv.equip(club);return inv;}
 test('rare clubs improve forge odds and upgrades strengthen the same owned tool without auto-equipping',()=>{
  const rough=forgeInventory('wood-club'),master=forgeInventory('infernite-club');
  assert.ok(clubQuality(master.equippedTool).chances[2]>clubQuality(rough.equippedTool).chances[2]);
