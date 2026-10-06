@@ -93,7 +93,8 @@ test('starter foraging unlocks axes, wood upgrades, and retained inventory', () 
   assert.equal(collect(tree,0).ok,false);
   assert.equal(collect(boulder,0).ok,false);
   assert.equal(bag.resources.wood,0);
-  assert.deepEqual(collect(bush,0).loot,{leaves:2,sticks:2});
+  const forage=collect(bush,0).loot;assert.equal(forage.leaves,2);assert.equal(forage.sticks,2);
+  assert.ok(Object.keys(forage).some(id=>id.endsWith('Seeds')));
   for(const n of starters.filter(n=>n.kind==='ground'&&n.resource==='stone'))collect(n,0);
   assert.ok(bag.resources.stone>=8);
   assert.equal(bag.craft('reinforced-axe').ok,false);

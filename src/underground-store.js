@@ -1,0 +1,9 @@
+import {darrenOnly} from './underground-store-data.js';
+export const DARREN_PRICES={rawMarijuana:8,driedMarijuana:25,marijuanaSeeds:5,bigfootFur:120,oldTestament:300,steezusBook:1200,sulfur:8};
+export function sellToDarren(inv,id,amount=1){if(['rawMarijuana','driedMarijuana'].includes(id))return {ok:false,message:'Trade seven marijuana through Darren’s quest for 500 coins.'};if(!darrenOnly(id)||![1,5].includes(amount))return {ok:false,message:'Darren buys marijuana and boss loot.'};if(!inv.consume(id,amount))return {ok:false,message:'You do not have enough to sell.'};const coins=DARREN_PRICES[id]*amount;inv.coins+=coins;return {ok:true,message:`Darren paid ${coins} coins.`};}
+export function buyScratch(inv,rng=Math.random){
+ if(inv.pendingScratch)return {ok:false,message:'Scratch your current ticket first.'};if(inv.coins<25)return {ok:false,message:'A scratch ticket costs 25 coins.'};
+ inv.coins-=25;const roll=rng();const prize=roll<.03?{id:'steezusBook',amount:1}:roll<.18?{id:'driedMarijuana',amount:1+Math.floor(rng()*3)}:roll<.6?{id:'coins',amount:[20,40,75,150][Math.min(3,Math.floor(rng()*4))]}:{id:'none',amount:0};
+ inv.pendingScratch={prize};inv.add('scratchTicket',1);return {ok:true,message:'Scratch the silver panel to reveal your prize.'};
+}
+export function claimScratch(inv){const ticket=inv.pendingScratch;if(!ticket)return {ok:false,message:'Buy a ticket first.'};if(!inv.consume('scratchTicket',1))return {ok:false,message:'Your ticket is missing.'};inv.pendingScratch=null;const {id,amount}=ticket.prize;if(id==='coins')inv.coins+=amount;else if(id!=='none')inv.add(id,amount);return {ok:true,prize:ticket.prize,message:id==='none'?'No prize this time.':id==='coins'?`Won ${amount} coins!`:id==='steezusBook'?"Won Steezus’s Book!":`Won ${amount} dried marijuana!`};}

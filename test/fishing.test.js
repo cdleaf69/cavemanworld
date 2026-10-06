@@ -8,8 +8,8 @@ import { Campfire } from '../src/structures.js';
 import { CreatureRegistry, populateCreatures } from '../src/creatures.js';
 import { biomeAt } from '../src/world.js';
 
-test('six lakes have dry, walkable shores and solid water',()=>{
-  assert.equal(LAKES.length,6);
+test('seven lakes have dry, walkable shores and solid water',()=>{
+  assert.equal(LAKES.length,7);
   for(const lake of LAKES){
     assert.equal(lakeAt(lake.x,lake.y)?.id,lake.id);
     assert.equal(canWalk(lake.x,lake.y,'surface'),false);
@@ -26,11 +26,14 @@ test('a crafted rod catches fish that cook in a fueled campfire',()=>{
   inventory.equip('fishing-rod');
   const lake=LAKES[0],player={x:lake.x+lake.rx+85,y:lake.y,layer:'surface'};
   const point={x:lake.x+lake.rx-40,y:lake.y};
-  const session=new FishingSession();
-  assert.equal(session.cast(player,inventory.equippedTool,point,1000).ok,true);
+  inventory.add('worms',3);
+  const session=new FishingSession(()=>.25);
+  assert.equal(session.cast(player,inventory.equippedTool,point,1000,inventory).ok,true);
   assert.equal(session.reel(1500,inventory).ok,false);
   assert.match(session.update(5000,player),/Fish biting/);
-  assert.equal(session.reel(5000,inventory).ok,true);
+  assert.equal(session.reel(5000,inventory).ok,false);
+  let result;for(let i=1;i<40&&session.active;i++)result=session.reel(5000+i*100,inventory);
+  assert.equal(result.ok,true);
   assert.equal(FISH_SPECIES.reduce((n,f)=>n+inventory.resources[f.id],0),1);
   const fire=new Campfire(player.x+100,player.y,'surface');
   assert.equal(fire.addFuel(inventory),true);

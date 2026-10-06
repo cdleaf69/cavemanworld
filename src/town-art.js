@@ -1,3 +1,4 @@
+import {SHOPKEEPER_APPEARANCE,SMITH_APPEARANCE} from './npc-hair.js';
 export function townObjects(ctx,art,building,time){
  const sprite=art.sprite(`furniture:${building.type}`,()=>{
   const image=document.createElement('canvas');image.width=1100;image.height=850;const c=image.getContext('2d');const block=(x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
@@ -13,6 +14,6 @@ export function townObjects(ctx,art,building,time){
   return {image,ax:0,ay:0};
  });
  const objects=[{y:275,draw:()=>{ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(sprite.image,-2,-2);ctx.restore();}}];
- if(building.type!=='house')objects.push({y:155,draw:()=>{art.player(ctx,{x:550,y:155,facing:Math.PI/2,moving:false},{equippedGear:{tier:building.type==='smith'?'iron':'wood'}},time);}});
+ if(building.type!=='house')objects.push({y:155,draw:()=>{art.player(ctx,{x:550,y:155,appearance:building.type==='smith'?SMITH_APPEARANCE:SHOPKEEPER_APPEARANCE,facing:Math.PI/2,moving:false},{equippedGear:{tier:building.type==='smith'?'iron':'wood'}},time);}});
  return objects;
 }

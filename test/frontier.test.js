@@ -19,11 +19,11 @@ import {Hotbar} from '../src/hotbar.js';
 const item=id=>RECIPES.find(r=>r.id===id);
 const fullBag=()=>{const inv=new Inventory({level:20});for(const id of RESOURCES)inv.add(id,200);return inv;};
 
-test('fourteen fish increase in size and sale value; higher catches need rod and depth progression',()=>{
- assert.equal(FISH_SPECIES.length,14);let length=0,price=0;
+test('eighteen fish increase in size and sale value; higher catches need rod and depth progression',()=>{
+ assert.equal(FISH_SPECIES.length,18);let length=0,price=0;
  for(const f of FISH_SPECIES){assert.ok(f.length>length);assert.ok(f.value>price);assert.equal(resourcePrice(f.id),f.value);length=f.length;price=f.value;}
- assert.equal(fishLimit(),4);assert.equal(fishLimit({quest:9,rodRank:6,depth:4}),14);
- assert.ok(chooseFish({},()=>.999).rank<=4);assert.equal(chooseFish({quest:10,rodRank:6,depth:4},()=>.999).rank,14);
+ assert.equal(fishLimit(),4);assert.equal(fishLimit({quest:9,rodRank:6,depth:4}),18);
+ assert.ok(chooseFish({},()=>.999).rank<=4);assert.equal(chooseFish({quest:10,rodRank:6,depth:4},()=>.999).rank,18);
  const inv=new Inventory();inv.add(FISH_SPECIES[0].id,20);inv.add(FISH_SPECIES[13].id,2);assert.equal(fishCount(inv,12),2);assert.equal(consumeFish(inv,3,12),false);assert.equal(inv.resources[FISH_SPECIES[13].id],2);assert.equal(consumeFish(inv,2,12),true);assert.equal(inv.resources[FISH_SPECIES[0].id],20);
 });
 test('fisherman has ten completable sequential quests; final armor is not craftable or auto equipped',()=>{
@@ -55,7 +55,7 @@ test('marijuana harvest is usually one, rarely three; processing takes thirty se
  const v=new PlayerVitals();v.setMaxHealth(150);assert.equal(v.health,150);v.takeDamage(20,null,1000);v.setMaxHealth(100);assert.equal(v.health,87);
 });
 test('three inland mountains have walkable climb routes and flat summits; buildings and ordinary construction stay off slopes',()=>{
- assert.equal(SURFACE.width*SURFACE.height,54000*35000*3);assert.equal(MOUNTAINS.length,3);const structures=new StructureRegistry();
+ assert.equal(SURFACE.width*SURFACE.height,90000*63000*2);assert.equal(MOUNTAINS.length,3);const structures=new StructureRegistry();
  for(const m of MOUNTAINS){assert.equal(altitudeAt(m.x,m.y),m.height);assert.ok(plateauAt(m.x,m.y));assert.ok(canWalk(m.x,m.y,'surface'));assert.ok(structurePlacement('drying-shack',m,'surface',structures).ok);
   const slope={x:m.x,y:m.y+m.ry*.65};assert.equal(structurePlacement('drying-shack',slope,'surface',structures).ok,false);
   for(let i=1;i<m.trail.length;i++){const a=m.trail[i-1],b=m.trail[i];for(let j=0;j<=20;j++){const t=j/20;assert.ok(canWalk(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,'surface',24),m.id);}}
@@ -92,12 +92,12 @@ test('built walls stop both hostile and player projectiles, and bosses cannot wa
 
 test('lake and ocean catches respect species habitats, and only boats prevent automatic diving',()=>{
  for(const water of ['lake','ocean'])for(let i=0;i<100;i++){const f=chooseFish({water,quest:10,rodRank:6,depth:4},()=>i/100);assert.ok(f.habitat==='both'||f.habitat===(water==='lake'?'freshwater':'ocean'));}
- const d=new DivingSession(),inv=new Inventory(),p={x:coastline(14500)+1000,y:14500,layer:'surface',vehicle:{boat:true}};d.update(5,p,inv);assert.equal(d.wetTime,0);p.vehicle={glider:true};d.update(5,p,inv);assert.ok(d.wetTime>4);p.layer='ocean';d.maxBreath=70;d.breath=70;d.update(.1,p,inv);assert.ok(d.breath<=35);
+ const d=new DivingSession(),inv=new Inventory(),p={x:coastline(14500)+1000,y:14500,layer:'surface',vehicle:{boat:true}};d.update(5,p,inv);assert.equal(d.wetTime,0);p.vehicle={glider:true};d.update(5,p,inv);assert.equal(d.wetTime,0);p.layer='ocean';d.maxBreath=70;d.breath=70;d.update(.1,p,inv);assert.ok(d.breath<=35);
 });
 
 test('editable frontier zones mask special resources without moving players or losing gathered-node state',()=>{
  const zones=new SpawnZoneManager(null),nodes=new FrontierNodes(zones),pine=zones.zones.find(z=>z.id==='summit-harvest-pinecrest');assert.equal(nodes.items.filter(n=>n.kind==='marijuana').length,18);
  pine.resources=pine.resources.filter(r=>r!=='rawMarijuana');nodes.reconcileZones();assert.equal(nodes.items.filter(n=>n.kind==='marijuana').length,12);pine.resources.push('rawMarijuana');nodes.reconcileZones();assert.equal(nodes.items.filter(n=>n.kind==='marijuana').length,18);
  const plant=nodes.items.find(n=>n.kind==='marijuana'),inv=new Inventory(),q=new QuestBook();nodes.collect(plant,inv,q,1000,()=>0);nodes.reconcileZones();assert.equal(nodes.items.find(n=>n.id===plant.id).active,false);
- const old=defaultZones().filter(z=>!z.id.startsWith('summit-harvest')&&z.id!=='ocean-harvest');const storage={getItem:key=>key.endsWith('v4')?JSON.stringify(old):null,setItem(){}};const migrated=new SpawnZoneManager(storage);assert.ok(migrated.zones.some(z=>z.id==='ocean-harvest'));assert.equal(migrated.zones.find(z=>z.id==='habitat-meadows').vertices[1].x,89970);
+ const old=defaultZones().filter(z=>!z.id.startsWith('summit-harvest')&&z.id!=='ocean-harvest');const storage={getItem:key=>key.endsWith('v4')?JSON.stringify(old):null,setItem(){}};const migrated=new SpawnZoneManager(storage);assert.ok(migrated.zones.some(z=>z.id==='ocean-harvest'));assert.equal(migrated.zones.find(z=>z.id==='habitat-meadows').vertices[1].x,134970);
 });

@@ -1,4 +1,8 @@
-import {mountainAt,altitudeAt,unprojectMountainPoint} from './frontier-world.js';
+import {caveClearance} from './cave-shapes.js';
+import {indexBiomeInfluences} from './biome-index.js';
+import {biomeBlend} from './biome-shapes.js';
+import {RIVER_HALF_WIDTH} from './world.js';
+import {mountainAt,altitudeAt,mountainSurfacePoint} from './frontier-world.js';
 import { caveGeometry,TOWNS } from './world.js';
 import { MATERIAL_COLORS } from './materials.js';
 import { PixelArt, grain } from './pixel-art.js';
@@ -13,7 +17,7 @@ const leaves={heartlands:['#277d5b','#39ad66','#78d77a','#b9ed8a'],woodland:['#1
 const ore={iron:'#b9d9da',copper:'#f79268',quartz:'#b7f0ef',amber:'#ffca57',obsidian:'#9f91d2',moonstone:'#efb5fc'};
 const gear={leaf:'#64c776',wood:'#cb8c58',stone:'#a4bdc2',iron:'#7bc9de',copper:'#efa16d',quartz:'#ace7e8',amber:'#f2c357',obsidian:'#9c83cb',moonstone:'#e0a7ef'};
 Object.assign(ore,MATERIAL_COLORS);Object.assign(gear,MATERIAL_COLORS);
-const sections=points=>points.slice(1).map((b,i)=>({a:points[i],b,minX:Math.min(points[i][0],b[0])-130,maxX:Math.max(points[i][0],b[0])+130,minY:Math.min(points[i][1],b[1])-130,maxY:Math.max(points[i][1],b[1])+130}));
+const sections=points=>points.slice(1).map((b,i)=>({a:points[i],b,minX:Math.min(points[i][0],b[0])-210,maxX:Math.max(points[i][0],b[0])+210,minY:Math.min(points[i][1],b[1])-210,maxY:Math.max(points[i][1],b[1])+210}));
 function indexSections(list){
  const cells=new Map();for(const s of list)for(let cy=Math.floor(s.minY/512);cy<=Math.floor(s.maxY/512);cy++)for(let cx=Math.floor(s.minX/512);cx<=Math.floor(s.maxX/512);cx++){const key=`${cx}:${cy}`;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(s);}list.cells=cells;return list;
 }
@@ -30,48 +34,62 @@ function canopy(c,x,y,w,h,p,seed){
   for(let i=0;i<4;i++){const bx=x+9+Math.floor(grain(i,seed)*Math.max(1,w-20)),by=y+11+Math.floor(grain(seed,i)*Math.max(1,h-25));block(c,bx,by,4,4,i%2?p[3]:p[1]);}
 }
 function smoothNoise(x,y,size){const fx=x/size,fy=y/size,ix=Math.floor(fx),iy=Math.floor(fy),a=fx-ix,b=fy-iy,u=a*a*(3-2*a),v=b*b*(3-2*b);return (grain(ix,iy)*(1-u)+grain(ix+1,iy)*u)*(1-v)+(grain(ix,iy+1)*(1-u)+grain(ix+1,iy+1)*u)*v;}
+const biomeCandidates=indexBiomeInfluences(BIOMES);
 function sample(x,y,layer){
   if(layer==='ocean'){const depth=clamp(-oceanDistance(x,y)/2500),n=smoothNoise(x,y,230);return {color:mix([80+n*10,151+n*8,160],[27,66,107],depth*.8),water:false,dirt:false,bridge:false};}
   if(layer!=='surface'){
-    const {rooms,tunnels}=caveGeometry(layer);
-    let inside=-10000;for(const r of rooms)inside=Math.max(inside,r.r-Math.hypot(x-r.x,y-r.y));
-    for(const t of tunnels)for(let i=1;i<t.points.length;i++)inside=Math.max(inside,t.width/2-distanceToSegment(x,y,...t.points[i-1],...t.points[i]));
-    const floor=({deep:[94,94,145],abyss:[72,106,122],core:[124,81,103]}[layer]||[115,118,138]),wall=({deep:[34,43,78],abyss:[27,49,64],core:[55,34,61]}[layer]||[42,61,79]);
-    return {color:mix(wall,floor,clamp((inside+10)/34)),water:false,dirt:false,bridge:false};
+    const inside=caveClearance(x,y,caveGeometry(layer));
+    const floor=({deep:[94,94,145],abyss:[72,106,122],core:[124,81,103],mantle:[140,104,86],vault:[111,109,160]}[layer]||[115,118,138]),wall=({deep:[34,43,78],abyss:[27,49,64],core:[55,34,61],mantle:[57,40,42],vault:[33,33,64]}[layer]||[42,61,79]);
+    let color=mix(wall,floor,clamp((inside+10)/34));const n=smoothNoise(x,y,110),strata=smoothNoise(x+350,y,420);color=color.map(v=>v+(n-.5)*8+(strata-.5)*12);if(inside>0&&inside<75)color=color.map(v=>v*(.72+inside/75*.28));return {color,water:false,dirt:false,bridge:false};
   }
-  if(mountainAt(x,y)){const p=unprojectMountainPoint({x,y});y=p.y;}
+  const projected=mountainSurfacePoint(x,y);y=projected.y;
   const n=smoothNoise(x,y,340),detail=smoothNoise(x,y,150);
   let color=ground.heartlands;
-  for(const b of BIOMES){const rx=(x-b.center[0])/b.radii[0],ry=(y-b.center[1])/b.radii[1],w=clamp((1.10-Math.hypot(rx,ry))*4.4+(n-.5)*.3);if(w)color=mix(color,ground[b.id],w);}
+  for(const b of biomeCandidates(x,y)){const w=biomeBlend(b,x,y);if(w)color=mix(color,ground[b.id],w);}
   // World-space noise crosses tile edges continuously; texture is baked only once.
   color=color.map(v=>v+(n-.5)*10+(detail-.5)*7);
   color=mix(color,[169,211,106],clamp((detail-.48)*.3));
-  const m=mountainAt(x,y);if(m){const h=altitudeAt(x,y)/m.height;color=mix(color,m.id==='frostpeak'?[185,203,190]:[132,151,135],clamp(h*.8));color=color.map(v=>v+(detail-.5)*15);if(h>.985)color=mix(color,m.id==='frostpeak'?[193,218,202]:[153,191,132],.7);}
+  const m=mountainAt(x,y);if(m){
+    const h=altitudeAt(x,y)/m.height,face=(x-m.x)/m.rx*.45+(y-m.y)/m.ry*.35;
+    const crag=smoothNoise(x+450,y-300,90),rock=smoothNoise(x,y,210);
+    const stone=m.id==='frostpeak'?[139,170,170]:m.id==='cloudspine'?[125,147,151]:[126,145,121];
+    color=mix(color,stone,clamp(h*.85+(rock-.5)*.25*clamp(h*5)));
+    const shade=clamp(h*5)*(face*24+(rock-.5)*26+(crag-.5)*10);color=color.map(v=>v+shade);color=mix(color,[164,193,183],h*.12);
+    if(h>.85){const blend=clamp((h-.85)/.15);color=mix(color,m.id==='frostpeak'?[178,209,191]:[142,185,117],blend*blend*(3-2*blend)*.8);}
+    if(m.id==='frostpeak')color=mix(color,[205,227,218],clamp((h-.62)*2.6+(rock-.5)*.3)*clamp((h-.6)*5));
+  }
   const path=near(x,y,trails),stream=near(x,y,river),village=Math.hypot(x-9000,y-7000);
   const edge=smoothNoise(x+1900,y-750,95);
-  const townPlaza=Math.max(...TOWNS.map(t=>clamp((260-Math.hypot(x-t.x,y-t.y)+(detail-.5)*24)/75)));
+  let townPlaza=0;for(const t of TOWNS)townPlaza=Math.max(townPlaza,clamp((260-Math.hypot(x-t.x,y-t.y)+(detail-.5)*24)/75));
   const dirt=clamp((10-path+(edge-.5)*8)/22),plaza=0,soil=Math.max(dirt,plaza,townPlaza);
   color=mix(color,[233+(detail-.5)*12,196+(detail-.5)*12,119+(detail-.5)*10],soil);
   const coast=oceanDistance(x,y);
   if(coast<240){const sand={tundra:[218,232,205],marsh:[198,202,143],badlands:[239,181,109],volcanic:[177,160,179],woodland:[224,207,141],heartlands:[239,211,147]}[biomeAt(x,y,'surface').id]||[239,211,147];color=mix(color,sand,clamp((240-coast)/130));}
-  const water=Math.min(stream-83,lakeWaterDistance(x,y),coast),bridge=false;
+  const water=Math.min(stream-RIVER_HALF_WIDTH,lakeWaterDistance(x,y),coast),bridge=false;
   if(water<30&&!bridge)color=mix(color,[71,196,207],clamp((30-water)/35));
   if(water<0&&!bridge)color=mix(color,[44,139,199],clamp(-water/75)*.78);
   if(bridge)color=[185,133,81];
-  return {color,water:water<0&&!bridge,dirt:soil>.5,soil,bridge};
+  return {color,water:water<0&&!bridge,dirt:soil>.5,soil,bridge,riverBank:stream-RIVER_HALF_WIDTH};
 }
 
 export class ToyArt extends PixelArt {
+  makeCaveAtlas(layer){
+    const tile=canvas(1280,Math.round(1280*SURFACE.height/SURFACE.width)),c=tile.getContext('2d'),pixels=c.createImageData(tile.width,tile.height);
+    for(let y=0;y<tile.height;y++)for(let x=0;x<tile.width;x++){const s=sample(x/tile.width*SURFACE.width,y/tile.height*SURFACE.height,layer),i=(y*tile.width+x)*4;pixels.data[i]=s.color[0];pixels.data[i+1]=s.color[1];pixels.data[i+2]=s.color[2];pixels.data[i+3]=255;}c.putImageData(pixels,0,0);return tile;
+  }
   makeAtlas(){
-    const tile=canvas(480,Math.round(480*SURFACE.height/SURFACE.width)),c=tile.getContext('2d');
-    for(let y=0;y<tile.height;y+=2)for(let x=0;x<tile.width;x+=2){const s=sample(x/tile.width*SURFACE.width,y/tile.height*SURFACE.height,'surface');block(c,x,y,2,2,rgb(s.color));}
+    const tile=canvas(1280,Math.round(1280*SURFACE.height/SURFACE.width)),c=tile.getContext('2d');
+    const pixels=c.createImageData(tile.width,tile.height);for(let y=0;y<tile.height;y++)for(let x=0;x<tile.width;x++){const s=sample(x/tile.width*SURFACE.width,y/tile.height*SURFACE.height,'surface'),i=(y*tile.width+x)*4;pixels.data[i]=s.color[0];pixels.data[i+1]=s.color[1];pixels.data[i+2]=s.color[2];pixels.data[i+3]=255;}c.putImageData(pixels,0,0);
     return tile;
   }
   makeTerrain(gx,gy,layer){
     const tile=canvas(256,256),c=tile.getContext('2d');
-    for(let py=0;py<256;py+=4)for(let px=0;px<256;px+=4){
+    const mountainTile=layer==='surface'&&[0,256,512].some(dx=>[0,256,512].some(dy=>mountainAt(gx*512+dx,gy*512+dy)));
+    const step=mountainTile?2:4,riverEdges=[];
+    for(let py=0;py<256;py+=step)for(let px=0;px<256;px+=step){
       const x=gx*512+px*2,y=gy*512+py*2,s=sample(x,y,layer),n=grain(x>>2,y>>2,7);
-      block(c,px,py,4,4,rgb(s.color));
+      block(c,px,py,step,step,rgb(s.color));
+      if(layer==='surface'&&Math.abs(s.riverBank)<105)riverEdges.push([px,py]);
       if(!s.water){
         // Quiet flecks use the ground's own palette, instead of noisy contrasting dots.
         const fleck=s.color.map(v=>v+(n>.5?9:-8));
@@ -84,6 +102,14 @@ export class ToyArt extends PixelArt {
       }
       else if(!s.water&&n>.985)block(c,px+1,py+1,2,1,layer==='surface'?'#fff0bf':'#aaa6d8');
     }
+    if(riverEdges.length){
+      for(const [px,py] of riverEdges){
+        for(let dy=0;dy<step;dy++)for(let dx=0;dx<step;dx++){
+          const fine=sample(gx*512+(px+dx)*2+1,gy*512+(py+dy)*2+1,layer);
+          block(c,px+dx,py+dy,1,1,rgb(fine.color));
+        }
+      }
+    }
     if(layer==='surface')this.paintBridges(c,gx,gy);
     return tile;
   }
@@ -92,6 +118,11 @@ export class ToyArt extends PixelArt {
     c.save();c.scale(.5,.5);c.translate(-left,-top);
     for(const bridge of BRIDGE_SPANS){
       if(bridge.x<left-bridge.length-130||bridge.x>left+512+bridge.length+130||bridge.y<top-bridge.length-130||bridge.y>top+512+bridge.length+130)continue;
+      this.paintBridge(c,bridge);
+    }
+    c.restore();
+  }
+  paintBridge(c,bridge){
       c.save();c.translate(bridge.x,bridge.y);c.rotate(bridge.angle);
       const length=bridge.length;
       c.fillStyle='#684632';c.fillRect(-7,-57,length+14,114);
@@ -108,8 +139,6 @@ export class ToyArt extends PixelArt {
         for(let x=9;x<length;x+=56){c.fillStyle='#704831';c.fillRect(x-5,side<0?-67:49,10,18);c.fillStyle='#f1c184';c.fillRect(x-3,side<0?-67:49,6,4);}
       }
       c.restore();
-    }
-    c.restore();
   }
   makeResource(kind,biome,resource,variant){
     const tree=kind==='tree',image=canvas(tree?112:64,tree?148:66),c=image.getContext('2d'),ax=tree?56:32,ay=tree?138:55,p=leaves[biome]||leaves.heartlands;

@@ -1,3 +1,4 @@
+import {UNDERGROUND_STORE,STORE_LAYER,STORE_FIXTURES} from './underground-store-data.js';
 export const TOWNS=[
  {id:'hearth',name:'Hearthside',x:10600,y:7600,biome:'heartlands',connection:[11250,6480],approach:[[11250,6480],[11600,6480],[11600,7600],[10600,7600]],casino:true},
  {id:'fern',name:'Fernhaven',x:40700,y:9000,biome:'woodland',connection:[38700,8500],casino:true},
@@ -13,8 +14,8 @@ for(const t of TOWNS){
  if(t.casino&&t.id!=='hearth')TOWN_BUILDINGS.push({id:`${t.id}-casino`,town:t.id,name:`${t.name} Casino`,sign:'FERN FORTUNE',type:'casino',layer:`${t.id}-casino`,x:t.x-1300,y:t.y-50,width:360,height:180,biome:t.biome});
 }
 export const VILLAGE_HUTS=[];
-export const buildingForLayer=layer=>TOWN_BUILDINGS.find(b=>b.layer===layer)||null;
+export const buildingForLayer=layer=>layer===STORE_LAYER?UNDERGROUND_STORE:TOWN_BUILDINGS.find(b=>b.layer===layer)||null;
 export const INTERIOR_SIZE={width:1100,height:850,spawn:{x:550,y:700}};
 export const INTERIOR_FIXTURES=[{x:550,y:225,width:340,height:100}];
 export const INTERIOR_ACTIVITY={x:550,y:345};
-export const fixturesForBuilding=b=>b.type==='house'?[...INTERIOR_FIXTURES,{x:220,y:470,width:180,height:200},{x:850,y:500,width:150,height:100}]:INTERIOR_FIXTURES;
+export const fixturesForBuilding=b=>b.type==='convenience'?STORE_FIXTURES:b.type==='house'?[...INTERIOR_FIXTURES,{x:220,y:470,width:180,height:200},{x:850,y:500,width:150,height:100}]:INTERIOR_FIXTURES;

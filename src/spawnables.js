@@ -1,4 +1,9 @@
+import {caveDepth} from './cave-shapes.js';
 import { MATERIALS } from './materials.js';
+import {forageCrop} from './gardening.js';
+const nodeRegistries=new WeakMap();
+function readNodeActive(){return this._active;}
+function writeNodeActive(value){this._active=value;const registry=nodeRegistries.get(this);if(registry){if(value)registry.sleeping.delete(this);else registry.sleeping.add(this);}}
 // Runtime objects are deliberately separate from the vector terrain. The
 // spawner creates these from polygon zones; the terrain renderer never does.
 export const TIERS = Object.freeze({
@@ -23,12 +28,16 @@ export const ORE_RARITY = Object.freeze({
 export class ResourceNode {
   constructor({ id, kind, resource, x, y, layer, zoneId, quantity = 1, radius = 20, respawnMs = 90000 }) {
     Object.assign(this, { id, kind, resource, x, y, layer, zoneId, quantity, maxQuantity: quantity, radius, respawnMs });
-    this.active = true;
+    Object.defineProperties(this,{
+      _active:{value:true,writable:true},
+      active:{enumerable:true,configurable:true,get:readNodeActive,set:writeNodeActive},
+    });
     this.respawnAt = 0;
     this.blocking = ['tree', 'rock', 'ore'].includes(kind);
   }
+  get oreLevel(){return this.kind==='ore'?caveDepth(this.layer)||MATERIALS.find(m=>m.id===this.resource)?.depth||1:0;}
   get label() {
-    return ({ tree: 'Tree', bush: 'Foraging Bush', rock: 'Boulder', ore: `${this.resource[0].toUpperCase()+this.resource.slice(1)} Deposit`, ground: {
+    return ({ tree: 'Tree', bush: 'Foraging Bush', rock: 'Boulder', ore: `${MATERIALS.find(m=>m.id===this.resource)?.name||this.resource[0].toUpperCase()+this.resource.slice(1)} Deposit · Ore Lv ${this.oreLevel}`, ground: {
       leaves: 'Fallen Leaves', sticks: 'Loose Stick', wood: 'Log', stone: 'Pebble', iron: 'Iron Scrap',
     }[this.resource] })[this.kind] || this.kind;
   }
@@ -51,6 +60,7 @@ export class ResourceNode {
     this.quantity=0;this.active=false;this.respawnAt=now+this.respawnMs;
     const amount=this.blocking?equippedTool.yield:1;
     const loot=this.kind==='bush'?{leaves:2,sticks:2}:{[this.resource]:amount};
+    if(this.kind==='bush'&&this.layer==='surface')Object.assign(loot,forageCrop(this));
     return { ok: true, resource: this.resource, amount, loot, depleted: true };
   }
   update(now) {
@@ -60,7 +70,7 @@ export class ResourceNode {
 
 export class Tool {
   constructor({ id, type, tier, durability = 100, power, yield:harvestYield, damage,range=120,cooldown=420,knockback=0 }) {
-    if (!['pickaxe', 'axe', 'rock', 'club', 'rod', 'bow', 'slingshot','sword','spear','warhammer','transport','grapple'].includes(type)) throw new Error(`Unknown tool: ${type}`);
+    if (!['pickaxe', 'axe', 'rock', 'club', 'rod', 'bow', 'slingshot','sword','spear','warhammer','transport','grapple','waterskin'].includes(type)) throw new Error(`Unknown tool: ${type}`);
     if (!TIERS[tier]) throw new Error(`Unknown tier: ${tier}`);
     Object.assign(this, { id, type, tier, durability,range,cooldown,knockback, power:power??(tier==='iron'?3:1), yield:harvestYield??(tier==='iron'?6:3), damage:damage??2 });
   }
@@ -79,15 +89,15 @@ export class Decoration {
 }
 
 export class SpawnableRegistry {
-  constructor() { this.nodes = new Map(); this.decorations = new Map(); this.cells=new Map(); }
-  clear() { this.nodes.clear(); this.decorations.clear(); this.cells.clear(); }
+  constructor() { this.nodes = new Map(); this.decorations = new Map(); this.cells=new Map();this.sleeping=new Set(); }
+  clear() { this.nodes.clear(); this.decorations.clear(); this.cells.clear();this.sleeping.clear(); }
   cellKey(item){return `${item.layer}:${Math.floor(item.x/512)}:${Math.floor(item.y/512)}`;}
   index(item,type){const key=this.cellKey(item);if(!this.cells.has(key))this.cells.set(key,{nodes:new Set(),decorations:new Set()});this.cells.get(key)[type].add(item);}
-  addNode(node) { const old=this.nodes.get(node.id);if(old)this.cells.get(this.cellKey(old))?.nodes.delete(old);this.nodes.set(node.id, node);this.index(node,'nodes'); }
+  addNode(node) { const old=this.nodes.get(node.id);if(old){this.cells.get(this.cellKey(old))?.nodes.delete(old);this.sleeping.delete(old);nodeRegistries.delete(old);}this.nodes.set(node.id, node);nodeRegistries.set(node,this);if(!node.active)this.sleeping.add(node);this.index(node,'nodes'); }
   addDecoration(decoration) { const old=this.decorations.get(decoration.id);if(old)this.cells.get(this.cellKey(old))?.decorations.delete(old);this.decorations.set(decoration.id, decoration);this.index(decoration,'decorations'); }
-  remove(id) { for(const type of ['nodes','decorations']){const item=this[type].get(id);if(item)this.cells.get(this.cellKey(item))?.[type].delete(item);this[type].delete(id);} }
+  remove(id) { for(const type of ['nodes','decorations']){const item=this[type].get(id);if(item){this.cells.get(this.cellKey(item))?.[type].delete(item);if(type==='nodes'){this.sleeping.delete(item);nodeRegistries.delete(item);}}this[type].delete(id);} }
   *query(bounds,layer,type){for(let y=Math.floor(bounds.top/512);y<=Math.floor(bounds.bottom/512);y++)for(let x=Math.floor(bounds.left/512);x<=Math.floor(bounds.right/512);x++){const cell=this.cells.get(`${layer}:${x}:${y}`);if(cell)yield* cell[type];}}
-  update(now) { for (const node of this.nodes.values()) node.update(now); }
+  update(now) { for(const node of this.sleeping){if(this.nodes.get(node.id)!==node){this.sleeping.delete(node);continue;}node.update(now);if(node.active)this.sleeping.delete(node);} }
   visible(bounds, layer) {
     const inBounds = item => item.layer === layer && item.x >= bounds.left - 130 && item.x <= bounds.right + 130 && item.y >= bounds.top - 130 && item.y <= bounds.bottom + 130;
     return {

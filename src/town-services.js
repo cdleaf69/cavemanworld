@@ -1,9 +1,13 @@
+import {darrenOnly} from './underground-store-data.js';
+import {upgradeFishingRod,baitById} from './fishing-tackle.js';
 import {fishSpecies} from './fish-species.js';
 import {RESOURCES,RECIPES} from './crafting.js';
 import {MATERIALS} from './materials.js';
 export const HOUSE_RESPAWN_MS=120000;
-export function resourcePrice(id){const fish=fishSpecies(id);if(fish)return fish.value;const prices={rawMarijuana:8,driedMarijuana:25,skyCrystal:45,alpineFiber:12,eagleFeather:22,bigfootFur:120,pearl:35,coral:9,seaScale:18,seaEssence:65,sunkenRelic:90};if(prices[id])return prices[id];const m=MATERIALS.find(m=>m.id===id);return m?[0,4,10,18,30][m.depth]:({sinew:6,fang:9,essence:20,iron:4,hide:3,bone:3,wing:4,shell:5,venom:5,glimmer:18,cookedMeat:4,cookedFish:4,meat:2,rawFish:2,wood:2}[id]||1);}
+export function resourcePrice(id){const fish=fishSpecies(id);if(fish)return fish.value;const prices={sunMelon:8,cactusFruit:6,bogRice:4,lotusRoot:9,frostBerry:8,emberPepper:12,forestMushroom:5,melonSeeds:4,cactusSeeds:3,riceSeeds:2,lotusSeeds:4,frostSeeds:4,pepperSeeds:5,mushroomSpores:3,berries:3,carrots:4,alpineHerb:7,moonflower:12,berrySeeds:2,carrotSeeds:2,herbSeeds:3,moonflowerSeeds:4,marijuanaSeeds:5,rawMarijuana:8,driedMarijuana:25,skyCrystal:45,alpineFiber:12,eagleFeather:22,bigfootFur:120,pearl:35,coral:9,seaScale:18,seaEssence:65,sunkenRelic:90};if(prices[id])return prices[id];const m=MATERIALS.find(m=>m.id===id);return m?[0,4,10,18,30,48,75][m.depth]:({sinew:6,fang:9,essence:20,iron:4,hide:3,bone:3,wing:4,shell:5,venom:5,glimmer:18,cookedMeat:4,cookedFish:4,meat:2,rawFish:2,wood:2}[id]||1);}
 export function tradeResource(inventory,id,amount,buy){
+ if(darrenOnly(id))return {ok:false,message:'Only Darren in the underground 7-Eleven buys marijuana and boss items.'};
+ if(baitById(id))return {ok:false,message:'Buy bait from Marlow the fisherman.'};
  if(!RESOURCES.includes(id)||![1,5].includes(amount))return {ok:false,message:'Choose a resource and quantity.'};
  const price=resourcePrice(id)*(buy?2:1)*amount;
  if(buy){if(inventory.coins<price)return {ok:false,message:'Not enough coins.'};inventory.coins-=price;inventory.add(id,amount);}
@@ -14,11 +18,12 @@ export function clubQuality(club){
  if(club?.type!=='club')return {name:'No club',chances:[1,0,0],rank:0};
  const depth=MATERIALS.find(m=>m.id===club.tier)?.depth||0;
  const rank=depth?depth+2:club.tier==='iron'?2:club.tier==='stone'?1:0;
- return {rank,name:club.tier,chances:[[.9,.1,0],[.75,.23,.02],[.6,.35,.05],[.5,.4,.1],[.3,.5,.2],[.15,.45,.4],[.05,.3,.65]][rank]};
+ return {rank,name:club.tier,chances:[[.9,.1,0],[.75,.23,.02],[.6,.35,.05],[.5,.4,.1],[.3,.5,.2],[.15,.45,.4],[.05,.3,.65]][Math.min(6,rank)]};
 }
 export function upgradeCost(item){return {coins:20*((item?.upgradeLevel||0)+1),resource:['leaf','wood'].includes(item?.tier)?'wood':item?.tier,amount:2+(item?.upgradeLevel||0)};}
 export function upgradeTool(inventory,id,rng=Math.random){
  const item=inventory.owned.get(id),recipe=RECIPES.find(r=>r.id===id);
+ if(item?.type==='rod')return upgradeFishingRod(inventory,id);
  if(!item||recipe?.category!=='tool')return {ok:false,message:'Choose a crafted tool.'};
  if(inventory.equippedTool?.type!=='club')return {ok:false,message:'Equip a club from your hotbar before using the forge.'};
  if((item.upgradeLevel||0)>=3)return {ok:false,message:'This tool already has three upgrades.'};
