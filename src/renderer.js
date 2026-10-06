@@ -1,3 +1,5 @@
+import {mapProjection} from './map-view.js';
+import {RIVER_HALF_WIDTH} from './world.js';
 import { BIOMES, DEFAULT_BIOME, SURFACE, CAVES, DEEP_CAVES, PATHS, RIVER, PORTALS, DESCENTS, HUTS, LANDMARKS, CAVE_ROOMS, TUNNELS, DEEP_ROOMS, DEEP_TUNNELS, biomeAt, canWalk } from './world.js';
 import { CAMERA_TILT, worldToScreen, screenToWorld, viewBounds } from './camera.js';
 
@@ -9,7 +11,7 @@ function polygon(ctx, points) { ctx.beginPath(); ctx.moveTo(points[0].x, points[
 function line(ctx, points) { ctx.beginPath(); ctx.moveTo(points[0][0], points[0][1]); for (let i=1;i<points.length;i++) ctx.lineTo(points[i][0], points[i][1]); }
 function circle(ctx,x,y,r) { ctx.beginPath(); ctx.arc(x,y,r,0,TAU); }
 function label(ctx,text,x,y,{size=33,color='#20382c',align='center',weight=700,shadow=false}={}) {
-  ctx.save(); ctx.font = `${weight} ${size}px 'Space Grotesk', system-ui, sans-serif`; ctx.textAlign=align; ctx.textBaseline='middle';
+  ctx.save(); ctx.font = `${weight} ${size}px EmberRunes, monospace`; ctx.textAlign=align; ctx.textBaseline='middle';
   if (shadow) { ctx.shadowColor='#101913bb'; ctx.shadowBlur=12; }
   ctx.fillStyle=color; ctx.fillText(text,x,y); ctx.restore();
 }
@@ -66,7 +68,7 @@ export class WorldRenderer {
   }
   drawRiver(ctx){
     ctx.lineJoin='round';ctx.lineCap='round';line(ctx,RIVER);ctx.strokeStyle='#557e80';ctx.lineWidth=210;ctx.stroke();
-    line(ctx,RIVER);ctx.strokeStyle='#83aeaa';ctx.lineWidth=166;ctx.stroke();
+    line(ctx,RIVER);ctx.strokeStyle='#83aeaa';ctx.lineWidth=RIVER_HALF_WIDTH*2;ctx.stroke();
   }
   drawPaths(ctx,overview){
     ctx.lineJoin='round';ctx.lineCap='round';
@@ -261,7 +263,7 @@ export class WorldRenderer {
       }
       if(c.hitUntil>time){circle(ctx,0,0,c.radius+5);ctx.fillStyle='#fff0c655';ctx.fill();}
       if(c.health<c.maxHealth){ctx.fillStyle='#241f20';ctx.fillRect(-30,-c.radius-39,60,8);ctx.fillStyle=c.temperament==='hostile'?'#db7365':'#c7d398';ctx.fillRect(-29,-c.radius-38,58*c.health/c.maxHealth,6);}
-      if(c.temperament==='hostile'){ctx.fillStyle='#f6b697';ctx.font="700 13px 'Space Grotesk',sans-serif";ctx.textAlign='center';ctx.fillText(c.name.toUpperCase(),0,-c.radius-45);}
+      if(c.temperament==='hostile'){ctx.fillStyle='#f6b697';ctx.font="700 13px EmberRunes,monospace";ctx.textAlign='center';ctx.fillText(c.name.toUpperCase(),0,-c.radius-45);}
       ctx.restore();
     }
   }
@@ -279,7 +281,7 @@ export class WorldRenderer {
       else if(drop.resource==='bone'){ctx.strokeStyle=colors.bone;ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(-7,7);ctx.lineTo(7,-7);ctx.stroke();for(const s of [-1,1]){circle(ctx,s*8,-s*8,4);ctx.fillStyle=colors.bone;ctx.fill();}}
       else {ctx.beginPath();ctx.moveTo(-10,5);ctx.lineTo(-7,-7);ctx.lineTo(5,-11);ctx.lineTo(11,-2);ctx.lineTo(6,9);ctx.closePath();ctx.fillStyle=colors[drop.resource]||'#d5ba8a';ctx.fill();}
       ctx.restore();
-      if(drop.landed(time)){ctx.fillStyle='#fff0c9';ctx.font="700 13px 'Space Grotesk',sans-serif";ctx.textAlign='center';ctx.fillText(`${drop.amount} ${drop.resource}`,drop.landX,drop.landY-35);}
+      if(drop.landed(time)){ctx.fillStyle='#fff0c9';ctx.font="700 13px EmberRunes,monospace";ctx.textAlign='center';ctx.fillText(`${drop.amount} ${drop.resource}`,drop.landX,drop.landY-35);}
     }
   }
   drawProjectiles(ctx,registry,layer,bounds,time){
@@ -341,10 +343,10 @@ export class WorldRenderer {
       ctx.restore();}
     ctx.restore();
   }
-  drawOverview(canvas,layer,player,zones=null,showZones=false){
+  drawOverview(canvas,layer,player,zones=null,showZones=false,view=null){
     const ctx=canvas.getContext('2d');const world=layer==='surface'?SURFACE:layer==='deep'?DEEP_CAVES:CAVES;
     ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
-    const scale=Math.min(canvas.width/world.width,canvas.height/world.height),ox=(canvas.width-world.width*scale)/2,oy=(canvas.height-world.height*scale)/2;
+    const {scale,ox,oy}=mapProjection(canvas,world,view);
     ctx.save();ctx.translate(ox,oy);ctx.scale(scale,scale);
     if(layer==='surface')this.drawSurface(ctx,{left:0,top:0,right:world.width,bottom:world.height},scale,true);
     else if(layer==='deep')this.drawDeep(ctx,{left:0,top:0,right:world.width,bottom:world.height},scale,true);
@@ -354,10 +356,10 @@ export class WorldRenderer {
     }
     ctx.restore();
     // Screen-space labels stay legible at every atlas size.
-    if(canvas.width>500&&layer==='surface'){
-      for(const biome of BIOMES){const x=ox+biome.center[0]*scale,y=oy+biome.center[1]*scale;label(ctx,biome.name.toUpperCase(),x,y,{size:14,color:'#25392d'});}
+    if((view||canvas.width>500)&&layer==='surface'){
+      const occupied=[];ctx.font='12px EmberRunes, monospace';for(const biome of [...BIOMES].sort((a,b)=>b.radii[0]*b.radii[1]-a.radii[0]*a.radii[1])){const x=ox+biome.center[0]*scale,y=oy+biome.center[1]*scale,w=ctx.measureText(biome.name.toUpperCase()).width+12,box={l:x-w/2,r:x+w/2,t:y-10,b:y+10};if(x<40||x>canvas.width-40||occupied.some(b=>box.l<b.r&&box.r>b.l&&box.t<b.b&&box.b>b.t))continue;occupied.push(box);label(ctx,biome.name.toUpperCase(),x,y,{size:12,color:'#25392d'});}
     }
     const px=ox+player.x*scale,py=oy+player.y*scale;
-    circle(ctx,px,py,canvas.width>500?7:4);ctx.fillStyle='#fff3bb';ctx.fill();ctx.strokeStyle='#263227';ctx.lineWidth=2;ctx.stroke();
+    circle(ctx,px,py,view||canvas.width>500?7:4);ctx.fillStyle='#fff3bb';ctx.fill();ctx.strokeStyle='#263227';ctx.lineWidth=2;ctx.stroke();
   }
 }

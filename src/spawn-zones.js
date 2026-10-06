@@ -1,3 +1,4 @@
+import {roomOutline} from './cave-shapes.js';
 import {MOUNTAINS} from './frontier-world.js';
 import {FRONTIER_RESOURCES} from './frontier-items.js';
 import { MATERIALS } from './materials.js';
@@ -49,10 +50,11 @@ DEFAULTS.push(['habitat-meadows','Heartland Meadows','surface','heartlands',['tr
 for(let i=DEFAULTS.length-1;i>=0;i--)if(DEFAULTS[i][2]!=='surface'||DEFAULTS[i][0]==='village-starters')DEFAULTS.splice(i,1);
 for(const [layer,rooms,depth] of [['cave',CAVE_ROOMS,1],['deep',DEEP_ROOMS,2],...Object.entries(EXTRA_CAVES).map(([layer,g])=>[layer,g.rooms,g.depth])])for(const [i,r] of rooms.entries()){
  const biome=r.biome.replace('deep-',''),m=MATERIALS.find(m=>m.depth===depth&&m.biome===biome)||MATERIALS.find(m=>m.depth===depth);
- DEFAULTS.push([`${layer}-chamber-${i}`,r.name,layer,biome,['ore','rock','ground','decoration'],['stone','iron',m.id],Array.from({length:20},(_,j)=>[r.x+Math.cos(j*Math.PI/10)*r.r*.94,r.y+Math.sin(j*Math.PI/10)*r.r*.94])]);
+ DEFAULTS.push([`${layer}-chamber-${i}`,r.name,layer,biome,['ore','rock','ground','decoration'],depth===1?['stone','iron',m.id]:['stone',m.id],roomOutline(r,48,.96).map(p=>[p.x,p.y])]);
 }
 for(const m of MOUNTAINS)DEFAULTS.push(['summit-harvest-'+m.id,m.name+' Summit Harvests','surface','mountains',['frontier'],['rawMarijuana','skyCrystal','alpineFiber','eagleFeather'],Array.from({length:20},(_,i)=>[m.x+Math.cos(i*Math.PI/10)*m.rx*.36,m.y+Math.sin(i*Math.PI/10)*m.ry*.36])]);
-DEFAULTS.push(['ocean-harvest','Ocean Floor Forage & Wrecks','ocean','ocean',['frontier'],['coral','pearl','sunkenRelic'],[[86800,30],[89970,30],[89970,62970],[86800,62970]]]);
+for(const m of MOUNTAINS)DEFAULTS.push(['mountain-habitat-'+m.id,m.name+' Trail & Summit Wildlife','surface','mountains',['tree','bush','rock','decoration'],['wood','leaves','stone'],Array.from({length:32},(_,i)=>[m.x+Math.cos(i*Math.PI/16)*m.rx*.99,m.y+Math.sin(i*Math.PI/16)*m.ry*.99])]);
+DEFAULTS.push(['ocean-harvest','Ocean Floor Forage & Wrecks','ocean','ocean',['frontier'],['coral','pearl','sunkenRelic'],[[117600,30],[134970,30],[134970,83970],[117600,83970]]]);
 export const defaultZones = () => DEFAULTS.map(([id,name,layer,biome,allowedTypes,resources,vertices]) => ({
   id, name, layer, biome, allowedTypes: [...new Set([...allowedTypes,...(resources.includes('stone')?['ground']:[])])], resources: [...resources,...(allowedTypes.includes('bush')?['sticks']:[])],
   vertices: vertices.map(([x,y]) => ({x,y})),
@@ -81,13 +83,17 @@ export class SpawnZoneManager {
   }
   load() {
     try {
-      const saved=JSON.parse(this.storage?.getItem('embervale.spawnZones.v5'));
+      const saved=JSON.parse(this.storage?.getItem('embervale.spawnZones.v8'));
+      const v7=JSON.parse(this.storage?.getItem('embervale.spawnZones.v7'));
+      if(!saved&&Array.isArray(v7)){const preserved=v7.filter(z=>z.layer==='surface'||z.layer==='ocean'),ids=new Set(preserved.map(z=>z.id));return [...preserved,...defaultZones().filter(z=>!ids.has(z.id))].map(z=>new SpawnZone(z));}
+      const previous=JSON.parse(this.storage?.getItem('embervale.spawnZones.v6'));
+      if(!saved&&Array.isArray(previous)){const preserved=previous.filter(z=>!z.id.startsWith('mountain-habitat-')&&!z.id.startsWith('summit-harvest-')&&!z.id.startsWith('habitat-')&&z.id!=='ocean-harvest');const ids=new Set(preserved.map(z=>z.id));return [...preserved,...defaultZones().filter(z=>!ids.has(z.id))].map(z=>new SpawnZone(z));}
       if(Array.isArray(saved)&&saved.length&&saved.every(z=>z.id&&z.vertices?.length>=3)){const ids=new Set(saved.map(z=>z.id));return [...saved,...defaultZones().filter(z=>!ids.has(z.id))].map(z=>new SpawnZone(z));}
       const old=JSON.parse(this.storage?.getItem('embervale.spawnZones.v4'));if(Array.isArray(old)&&old.length){const defaults=defaultZones(),preserved=old.filter(z=>z.id!=='habitat-meadows'&&z.vertices?.length>=3),oldIds=new Set(preserved.map(z=>z.id));return [...preserved,...defaults.filter(z=>!oldIds.has(z.id))].map(z=>new SpawnZone(z));}
     } catch { /* invalid saved data: return to defaults */ }
     return defaultZones().map(z => new SpawnZone(z));
   }
-  save() { this.storage?.setItem('embervale.spawnZones.v5', JSON.stringify(this.zones)); }
+  save() { this.storage?.setItem('embervale.spawnZones.v8', JSON.stringify(this.zones)); }
   reset() { this.zones = defaultZones().map(z => new SpawnZone(z)); this.save(); }
   at(x,y,layer) { return [...this.zones].reverse().find(z => z.layer === layer && z.contains(x,y)) || null; }
   forLayer(layer) { return this.zones.filter(z => z.layer === layer); }

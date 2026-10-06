@@ -1,3 +1,4 @@
+import {CROPS} from './gardening.js';
 import { RECIPES } from './crafting.js';
 
 export class Hotbar {
@@ -17,7 +18,7 @@ export class Hotbar {
     const recipe=RECIPES.find(r=>r.id===slot.id);
     if(slot.kind==='equipment')return recipe?.category==='tool'&&(!inventory||inventory.owned.has(slot.id));
     if(slot.kind==='structure')return recipe?.category==='structure'&&(!inventory||(inventory.structures[slot.id]||0)>0);
-    return slot.kind==='resource'&&['cookedMeat','cookedFish','driedMarijuana'].includes(slot.id)&&(!inventory||(inventory.resources[slot.id]||0)>0);
+    return slot.kind==='resource'&&['cookedMeat','cookedFish','driedMarijuana',...CROPS.filter(c=>c.heal).map(c=>c.id)].includes(slot.id)&&(!inventory||(inventory.resources[slot.id]||0)>0);
   }
   place(index,slot,inventory,fromIndex=null){
     if(index<0||index>=this.slots.length||!this.allowed(slot,inventory))return false;

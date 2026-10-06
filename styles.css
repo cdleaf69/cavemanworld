@@ -40,3 +40,5 @@
 .hotbar-slot{background:#3b6071;border:2px solid #9cc7be;border-radius:5px;color:#fff7df}
 .hotbar-slot.selected{background:#4e9e83;border-color:#ffde79;box-shadow:inset 0 0 0 2px #26394b}
 .icon-button,.close-button{background:#3b6071;border:2px solid #ffe4a2;color:#fff7df}
+
+.atlas-controls{display:flex;align-items:center;gap:12px;margin:0 0 10px;font-size:11px}.atlas-controls #mapZoom{margin-left:auto}.atlas-controls button{padding:5px 9px}#fullMap{cursor:grab;touch-action:none}#fullMap.panning{cursor:grabbing}

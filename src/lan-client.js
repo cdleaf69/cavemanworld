@@ -1,0 +1,9 @@
+// Real same-origin HTTP/SSE transport. Items, quests and creatures remain local;
+// player presence and the shared building registry come from the Node server.
+export class LanClient extends EventTarget{
+ constructor(){super();this.id=null;this.token=null;this.ready=false;this.players=new Map();this.name='Caveman';this.lastSync=0;}
+ async connect(){try{const response=await fetch('/api/join',{method:'POST'});const join=await response.json();Object.assign(this,join);this.stream=new EventSource(`/api/events?id=${this.id}&token=${this.token}`);this.stream.onopen=()=>{this.ready=true;this.dispatchEvent(new CustomEvent('status',{detail:true}));};this.stream.onerror=()=>{this.ready=false;this.dispatchEvent(new CustomEvent('status',{detail:false}));};this.stream.onmessage=e=>{const msg=JSON.parse(e.data);if(msg.type==='snapshot'){this.players.clear();for(const p of msg.data.players)this.acceptPlayer(p);}if(msg.type==='player')this.acceptPlayer(msg.data);if(msg.type==='leave')this.players.delete(msg.data.id);this.dispatchEvent(new CustomEvent(msg.type,{detail:msg.data}));};}catch{this.dispatchEvent(new CustomEvent('status',{detail:false}));}}
+ acceptPlayer(p){if(p.id===this.id)return;const old=this.players.get(p.id);this.players.set(p.id,{...p,drawX:old?.drawX??p.x,drawY:old?.drawY??p.y});}
+ async send(action){if(!this.ready)throw Error('Waiting for the LAN server connection.');const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:this.id,token:this.token,action})});const data=await r.json();if(!r.ok)throw Error(data.error||'Network request failed.');return data;}
+ positions(dt,layer){return [...this.players.values()].filter(p=>p.layer===layer).map(p=>{const blend=1-Math.exp(-dt*14);if(Math.hypot(p.x-p.drawX,p.y-p.drawY)>1500){p.drawX=p.x;p.drawY=p.y;}p.drawX+=(p.x-p.drawX)*blend;p.drawY+=(p.y-p.drawY)*blend;return {...p,x:p.drawX,y:p.drawY};});}
+}

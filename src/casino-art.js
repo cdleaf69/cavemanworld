@@ -1,3 +1,4 @@
+import {DEALER_APPEARANCE} from './npc-hair.js';
 import {CASINO_BUILDING,CASINO_FIXTURES} from './world.js';
 const block=(c,x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
 const make=(w,h)=>{const image=document.createElement('canvas');image.width=w;image.height=h;return image;};
@@ -79,6 +80,6 @@ export function casinoObjects(ctx,art,time){
       return {image,ax:160,ay:147};
     });objects.push({y:fixture.y,draw:()=>art.draw(ctx,sprite,fixture.x,fixture.y,1)});
   }
-  objects.push({y:300,draw:()=>{art.player(ctx,{x:780,y:300,facing:Math.PI/2,moving:false},{equippedGear:{tier:'leaf'}},time);ctx.fillStyle='#f5ddaa';ctx.font='bold 17px monospace';ctx.textAlign='center';ctx.fillText('Dealer',780,180);}});
+  objects.push({y:300,draw:()=>{art.player(ctx,{x:780,y:300,appearance:DEALER_APPEARANCE,facing:Math.PI/2,moving:false},{equippedGear:null},time);ctx.fillStyle='#f5ddaa';ctx.font='bold 17px monospace';ctx.textAlign='center';ctx.fillText('Dealer',780,180);}});
   return objects;
 }

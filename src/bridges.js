@@ -1,8 +1,9 @@
+import {RIVER_HALF_WIDTH} from './world.js';
 import { PATHS, RIVER, distanceToSegment } from './world.js';
 
 export const RIVER_SEGMENTS=RIVER.slice(1).map((end,index)=>{
   const start=RIVER[index];
-  return {start,end,left:Math.min(start[0],end[0])-120,right:Math.max(start[0],end[0])+120,top:Math.min(start[1],end[1])-120,bottom:Math.max(start[1],end[1])+120};
+  return {start,end,left:Math.min(start[0],end[0])-210,right:Math.max(start[0],end[0])+210,top:Math.min(start[1],end[1])-210,bottom:Math.max(start[1],end[1])+210};
 });
 
 export function riverDistance(x,y,segments=RIVER_SEGMENTS){
@@ -22,7 +23,7 @@ function buildBridgeSpans(){
     let runStart=-1;
     for(let i=0;i<=steps;i++){
       const t=i/steps,x=ax+(bx-ax)*t,y=ay+(by-ay)*t;
-      const wet=riverDistance(x,y)<108;
+      const wet=riverDistance(x,y)<RIVER_HALF_WIDTH+25;
       if(wet&&runStart<0)runStart=i;
       if((!wet||i===steps)&&runStart>=0){
         const begin=Math.max(0,runStart/steps*length-25),end=Math.min(length,(wet?i:i-1)/steps*length+25);

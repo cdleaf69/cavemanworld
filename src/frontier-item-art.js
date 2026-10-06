@@ -1,13 +1,21 @@
+import {tableSvg} from './table-art.js';
+import {tableForTier} from './crafting-stations.js';
 export function frontierItemSvg(r){
 const wood='#b99565',dark='#556b6a',light='#c2d6cd';
 const box=(x,y,w,h,c)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`;
 const path=(d,c)=>`<path d="${d}" fill="${c}"/>`;
+if(r.tableTier)return tableSvg(r.tableTier);
 switch(r.id){
+case 'steezusBook':return '<g shape-rendering="crispEdges">'+box(22,13,52,68,'#3c302b')+box(27,16,43,59,'#798950')+box(27,16,7,59,'#4b5d40')+box(34,69,35,8,'#f3d491')+box(44,27,7,30,'#f4cf58')+box(35,36,26,7,'#f4cf58')+box(52,59,9,7,'#e9bd43')+box(38,20,25,3,'#b9c78a')+'</g>';
+case 'waterskin':return path('M34 28 62 28 61 41Q79 51 72 73Q49 90 27 73Q20 51 35 41Z','#b08a5c')+box(36,21,24,10,'#7f6042')+path('M37 49Q49 40 61 49L61 66Q48 76 36 66Z','#72b6c0')+box(39,24,16,3,'#debd86');
+case 'plant-box':return path('M9 48 74 48 88 61 24 61Z','#71533c')+box(24,61,64,21,wood)+path('M9 48 24 61 24 82 9 67Z','#8c6746')+box(24,77,64,5,'#7d6046')+[0,1,2].map(i=>box(32+i*19,31,3,30,'#57864d')+path(`M${32+i*19} 43 ${23+i*19} 30 ${32+i*19} 34 ${43+i*19} 28 ${39+i*19} 42Z`,'#8cb970')).join('');
 case 'powered-drill':return '<g shape-rendering="crispEdges">'+path('M14 77 53 38 66 49 26 88Z',wood)+box(37,27,29,30,dark)+box(42,32,20,19,'#a9bdd5')+path('M53 26 75 8 87 20 65 42Z',light)+path('M66 13 74 8 87 20 82 27Z','#e2e4bf')+box(32,55,15,6,'#628494')+'</g>';
 case 'grappling-tool':return `<path d="M22 80Q45 81 40 62L60 29" fill="none" stroke="${wood}" stroke-width="5"/>`+path('M51 18 61 27 72 15 77 20 66 32 72 44 65 48 58 35 46 36 44 28Z',light)+box(14,74,20,8,dark);
 case 'wood-scooter':return box(10,66,65,8,wood)+box(64,22,5,47,light)+box(52,21,26,6,wood)+box(16,74,12,12,dark)+box(62,74,12,12,dark);
 case 'reed-raft':return [0,1,2,3,4,5].map(i=>box(13+i*12,33,10,40,i%2?wood:'#cabd7b')).join('')+box(12,40,72,4,dark)+box(12,63,72,4,dark)+path('M48 18 50 58 56 59 55 18Z',wood);
 case 'crystal-glider':return path('M7 58 48 18 89 58 48 44Z','#a4c1da')+path('M7 58 48 18 48 44Z','#8299c7')+box(46,22,4,52,wood)+path('M40 48 48 39 55 48 48 60Z','#ded9f4');
+case 'wood-wall':return [0,1,2,3,4,5].map(i=>box(12+i*12,27,10,52,wood)).join('')+box(12,38,72,5,'#765d43')+box(12,67,72,5,'#765d43');
+case 'wood-roof':return [0,1,2,3,4].map(i=>box(12,22+i*12,72,10,i%2?'#947653':'#b79b67')).join('');
 case 'wood-floor':return [0,1,2,3,4].map(i=>box(12,22+i*12,72,10,i%2?wood:'#c4a87b')).join('');
 case 'stone-wall':return [0,1,2].map(i=>[0,1,2].map(j=>box(12+j*24,29+i*16,22,14,i%2?'#a6bdb5':'#7c9998')).join('')).join('');
 case 'wood-gate':return box(10,25,9,58,dark)+box(76,25,9,58,dark)+[0,1,2,3].map(i=>box(25+i*12,32,9,45,wood)).join('')+box(21,39,52,5,dark)+box(21,65,52,5,dark);

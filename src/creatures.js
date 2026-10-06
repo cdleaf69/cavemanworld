@@ -1,10 +1,15 @@
+import {CAVE_LAYERS,caveDepth} from './cave-shapes.js';
 import {FISH_SPECIES} from './fish-species.js';
 import {waterAt} from './world.js';
 import { EXTRA_CAVES } from './world.js';
 import { BIOMES, CAVE_ROOMS, DEEP_ROOMS, canWalk, biomeAt, PORTALS, DESCENTS, PLAYER_RADIUS } from './world.js';
 
 export const CREATURE_KINDS = Object.freeze({
+  mountainLion:{name:'Mountain Lion',temperament:'hostile',health:95,speed:150,radius:29,damage:17,attackRange:68,aggroRange:800,loot:{meat:4,hide:3,fang:2,sinew:2}},
   bigfoot:{name:'Bigfoot',temperament:'hostile',health:1100,speed:120,radius:55,damage:34,attackRange:110,aggroRange:1500,boss:true,loot:{bigfootFur:3,eagleFeather:6,skyCrystal:4,essence:3}},
+  adam:{name:'Adam · Garden Intern',temperament:'hostile',health:65,speed:135,radius:22,damage:6,attackRange:62,aggroRange:1600,loot:{}},
+  eve:{name:'Eve · Apple Enthusiast',temperament:'hostile',health:55,speed:125,radius:22,damage:5,attackRange:62,aggroRange:1600,ranged:true,loot:{}},
+  steezus:{name:'Steezus · The Higher Power',temperament:'hostile',health:1500,speed:120,radius:55,damage:34,attackRange:110,aggroRange:1500,boss:true,loot:{bigfootFur:3,eagleFeather:6,skyCrystal:4,essence:3}},
   reefCrab:{name:'Reef Crab',temperament:'hostile',health:35,speed:80,radius:23,damage:8,attackRange:60,aggroRange:500,aquatic:true,loot:{shell:2,seaScale:1}},
   seaTurtle:{name:'Sea Turtle',temperament:'neutral',health:65,speed:55,radius:34,aquatic:true,loot:{shell:3,seaScale:2}},
   dolphin:{name:'Dolphin',temperament:'neutral',health:90,speed:145,radius:30,aquatic:true,loot:{seaScale:3}},
@@ -44,10 +49,10 @@ export const CREATURE_KINDS = Object.freeze({
   ashMite: { name:'Ash Mite', temperament:'hostile', health:52, speed:92, radius:26, damage:18, attackRange:68, aggroRange:1050, loot:{obsidian:1,shell:2} },
 });
 
-export const DEPTH_DIFFICULTY=Object.freeze({surface:{health:1,damage:1,speed:1},cave:{health:1.35,damage:1.15,speed:1.45},deep:{health:3.2,damage:1.65,speed:1.8},abyss:{health:6,damage:2.3,speed:2.15},core:{health:10,damage:3,speed:2.5}});
+export const DEPTH_DIFFICULTY=Object.freeze({surface:{health:1,damage:1,speed:1},cave:{health:1.35,damage:1.15,speed:1.45},deep:{health:3.2,damage:1.65,speed:1.8},abyss:{health:6,damage:2.3,speed:2.15},core:{health:10,damage:3,speed:2.5},mantle:{health:16,damage:3.8,speed:2.7},vault:{health:24,damage:4.6,speed:2.9}});
 
 const entranceSafe=(x,y,layer,radius=225)=>[...PORTALS,...DESCENTS].some(p=>p[layer]&&Math.hypot(x-p[layer].x,y-p[layer].y)<radius);
-const shinyRoll=(id,layer)=>{const n=[...id].reduce((v,c)=>Math.imul(v^c.charCodeAt(0),16777619),2166136261)>>>0;return n/4294967296<({core:.42,abyss:.35,deep:.28,cave:.065}[layer]??.02);};
+const shinyRoll=(id,layer)=>{const n=[...id].reduce((v,c)=>Math.imul(v^c.charCodeAt(0),16777619),2166136261)>>>0;return n/4294967296<({vault:.5,mantle:.46,core:.42,abyss:.35,deep:.28,cave:.065}[layer]??.02);};
 
 export class Creature {
   constructor({id,kind,x,y,layer,shiny=false}) {
@@ -56,7 +61,7 @@ export class Creature {
     Object.assign(this,{id,kind,x,y,homeX:x,homeY:y,layer,...species,shiny});
     const difficulty=DEPTH_DIFFICULTY[layer]||DEPTH_DIFFICULTY.surface;
     this.health=Math.ceil(species.health*difficulty.health);this.speed=Math.round(species.speed*difficulty.speed);this.damage=Math.ceil((species.damage||0)*difficulty.damage);
-    this.aggroRange=(species.aggroRange||0)*(1.3+(['cave','deep','abyss','core'].indexOf(layer)+1)*.08);this.alertUntil=0;
+    this.aggroRange=(species.aggroRange||0)*(1.3+(caveDepth(layer))*.08);this.alertUntil=0;
     if(shiny){this.name=`Shiny ${species.name}`;this.health=Math.ceil(this.health*1.6);this.speed=Math.round(this.speed*1.12);this.damage=Math.ceil(this.damage*1.2);this.loot={...Object.fromEntries(Object.entries(species.loot).map(([r,n])=>[r,n+1])),glimmer:({deep:2,abyss:3,core:4}[layer]||1)};}
     this.maxHealth=species.health;this.alive=true;this.facing=0;this.nextAttackAt=0;this.respawnAt=0;this.fleeUntil=0;this.hitUntil=0;
     this.maxHealth=this.health;this.windupUntil=0;this.chargeUntil=0;this.nextChargeAt=0;this.chargeHit=false;
@@ -127,7 +132,7 @@ export class CreatureRegistry {
   add(creature){this.creatures.push(creature);}
   visible(bounds,layer){return this.creatures.filter(c=>c.alive&&c.layer===layer&&c.x>bounds.left-90&&c.x<bounds.right+90&&c.y>bounds.top-90&&c.y<bounds.bottom+90);}
   nearby(x,y,layer,range){return this.creatures.filter(c=>c.alive&&c.layer===layer&&Math.hypot(c.x-x,c.y-y)<range+c.radius);}
-  update(dt,now,player,canMove){const attacks=[];for(const creature of this.creatures){const attack=creature.update(dt,now,player,canMove);if(attack)attacks.push(attack);}return attacks;}
+  update(dt,now,player,canMove){this.creatures=this.creatures.filter(c=>!c.summoner||c.alive);const attacks=[];for(const creature of this.creatures){const beforeX=creature.x,beforeY=creature.y;const attack=creature.update(dt,now,player,canMove);creature.moving=Math.hypot(creature.x-beforeX,creature.y-beforeY)>.001;if(attack)attacks.push(attack);}return attacks;}
 }
 
 export function populateCreatures(registry){
@@ -142,7 +147,7 @@ export function populateCreatures(registry){
     }
   }
   for(const [layer,rooms] of [['cave',CAVE_ROOMS],['deep',DEEP_ROOMS],...Object.entries(EXTRA_CAVES).map(([l,g])=>[l,g.rooms])]){
-    const depth=['cave','deep','abyss','core'].indexOf(layer)+1;
+    const depth=caveDepth(layer);
     for(const [roomIndex,room] of rooms.entries()){
       const biome=(room.biome||'woodland').replace('deep-','');
       const local=({woodland:['rootStalker','caveSpider','caveBat'],tundra:['frostWisp','frostSerpent','caveBat'],marsh:['mireLeech','bogSpitter','caveSlime'],badlands:['duneBurrower','rockScorpion','stoneRam'],volcanic:['ashMite','emberGolem','rockScorpion']})[biome]||['caveSpider','caveCrawler'];

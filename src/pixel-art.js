@@ -1,3 +1,6 @@
+import {terrainPlan} from './terrain-plan.js';
+import {biomeBlend} from './biome-shapes.js';
+import {RIVER_HALF_WIDTH} from './world.js';
 import { BIOMES, SURFACE, PATHS, RIVER, HUTS, CAVE_ROOMS, TUNNELS, DEEP_ROOMS, DEEP_TUNNELS, distanceToSegment, lakeWaterDistance } from './world.js';
 import { CAMERA_TILT } from './camera.js';
 
@@ -12,7 +15,7 @@ function nearbyDistance(x,y,list){let d=10000;for(const s of list)if(x>=s.minX&&
 function surfaceSample(x,y){
   const variation=noise(x,y,680),detail=noise(x+800,y,95);
   let color=[...colors.heartlands];
-  for(const b of BIOMES){const d=Math.hypot((x-b.center[0])/b.radii[0],(y-b.center[1])/b.radii[1]);const weight=clamp((1.045-d)*8+(variation-.5)*1.5);if(weight)color=mix(color,colors[b.id],weight);}
+  for(const b of BIOMES){const weight=biomeBlend(b,x,y);if(weight)color=mix(color,colors[b.id],weight);}
   color=color.map(v=>v+(variation-.5)*23+(detail-.5)*14);
   // Soil patches and meadow cover vary continuously across chunk boundaries.
   const soil=clamp((noise(x+600,y-900,230)-.64)*2.4);color=mix(color,[125,115,75],soil*.5);
@@ -21,8 +24,8 @@ function surfaceSample(x,y){
   const village=0;
   const trail=clamp((65-path+(detail-.5)*20)/28);
   color=mix(color,[152+detail*15,130+detail*12,88+detail*10],Math.max(village,trail)*.94);
-  const waterDistance=Math.min(river-83,lakeWaterDistance(x,y));
-  const bridge=path<47&&river<106;
+  const waterDistance=Math.min(river-RIVER_HALF_WIDTH,lakeWaterDistance(x,y));
+  const bridge=path<47&&river<RIVER_HALF_WIDTH+23;
   if(waterDistance<35&&!bridge){color=mix(color,[129,137,92],clamp((35-waterDistance)/35));if(waterDistance<0)color=mix([53,123,121],[30,68,89],clamp(-waterDistance/78)*.85);}
   if(bridge)color=[131+detail*20,102+detail*12,65+detail*10];
   return {color,water:waterDistance<0&&!bridge,soil:Math.max(village,trail),bridge};
@@ -57,26 +60,53 @@ const metals={leaf:'#82a768',wood:'#b8915d',stone:'#a5aca0',iron:'#bbd2d0',coppe
 
 export class PixelArt {
   constructor({worker=true}={}){
-    this.tiles=new Map();this.sprites=new Map();this.pending=new Set();
+    this.tiles=new Map();this.sprites=new Map();this.pending=new Set();this.workers=[];this.terrainQueue=[];
     if(worker&&typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined'){
-      this.worker=new Worker(new URL('./terrain-worker.js',import.meta.url),{type:'module'});
-      this.worker.onmessage=({data})=>{this.pending.delete(data.key);if(data.key==='surface-atlas')this.atlas=data.bitmap;else this.cacheTile(data.key,data.bitmap);};
-      this.worker.onerror=()=>{this.worker.terminate();this.worker=null;this.pending.clear();};
+      const count=Math.min(2,Math.max(1,(globalThis.navigator?.hardwareConcurrency||2)-1));
+      for(let i=0;i<count;i++){
+        const w=new Worker(new URL('./terrain-worker.js',import.meta.url),{type:'module'});w.busy=false;
+        w.onmessage=({data})=>{this.pending.delete(data.key);w.busy=false;this.cacheTile(data.key,data.bitmap);this.pumpTerrain();};
+        w.onerror=()=>{w.terminate();this.pending.delete(w.jobKey);this.workers=this.workers.filter(other=>other!==w);this.worker=this.workers[0]||null;this.pumpTerrain();};
+        this.workers.push(w);
+      }
+      this.worker=this.workers[0];
     }
   }
-  cacheTile(key,tile){this.tiles.set(key,tile);if(this.tiles.size>256){const oldest=this.tiles.keys().next().value;this.tiles.get(oldest)?.close?.();this.tiles.delete(oldest);}}
-  requestAtlas(){if(this.atlas||this.pending.has('surface-atlas'))return;if(this.worker){this.pending.add('surface-atlas');this.worker.postMessage({key:'surface-atlas',kind:'atlas'});}else this.atlas=this.makeAtlas();}
-  terrain(ctx,bounds,layer){
-    const size=512,missing=[];let generated=0;
-    for(let gy=Math.floor(bounds.top/size);gy<=Math.floor(bounds.bottom/size);gy++)for(let gx=Math.floor(bounds.left/size);gx<=Math.floor(bounds.right/size);gx++){
-      const key=`${layer}:${gx}:${gy}`;let tile=this.tiles.get(key);
-      if(!tile&&this.worker){if(!this.pending.has(key))missing.push({key,gx,gy,layer});}
-      else if(!tile&&generated<1){tile=this.makeTerrain(gx,gy,layer);this.cacheTile(key,tile);generated++;}
-      if(tile){ctx.imageSmoothingEnabled=false;ctx.drawImage(tile,gx*size-.5,gy*size-.5,size+1,size+1);}
+  pumpTerrain(){
+    for(const w of this.workers){
+      if(w.busy)continue;
+      let job;while(this.terrainQueue.length){const candidate=this.terrainQueue.shift();if(!this.tiles.has(candidate.key)&&!this.pending.has(candidate.key)){job=candidate;break;}}
+      if(!job)break;w.busy=true;w.jobKey=job.key;this.pending.add(job.key);w.postMessage(job);
     }
-    const cx=(bounds.left+bounds.right)/1024,cy=(bounds.top+bounds.bottom)/1024;
-    missing.sort((a,b)=>(a.gx-cx)**2+(a.gy-cy)**2-((b.gx-cx)**2+(b.gy-cy)**2));
-    for(const job of missing){if(this.pending.size>=8)break;this.pending.add(job.key);this.worker.postMessage(job);}
+  }
+  cacheTile(key,tile){this.tiles.set(key,tile);if(this.tiles.size>512){const oldest=this.tiles.keys().next().value;this.tiles.get(oldest)?.close?.();this.tiles.delete(oldest);}}
+  requestCaveAtlas(layer){
+    this.caveAtlases??=new Map();const key='cave-atlas:'+layer;
+    if(this.caveAtlases.has(layer)||this.pending.has(key))return;
+    if(this.worker){this.pending.add(key);const w=new Worker(new URL('./terrain-worker.js',import.meta.url),{type:'module'});
+      w.onmessage=({data})=>{this.caveAtlases.set(layer,data.bitmap);this.pending.delete(key);w.terminate();};
+      w.onerror=()=>{this.pending.delete(key);w.terminate();this.caveAtlases.set(layer,this.makeCaveAtlas(layer));};
+      w.postMessage({key,kind:'cave-atlas',layer});
+    }else this.caveAtlases.set(layer,this.makeCaveAtlas(layer));
+  }
+  requestAtlas(){if(this.atlas||this.pending.has('surface-atlas'))return;if(this.worker){
+    this.pending.add('surface-atlas');this.atlasWorker=new Worker(new URL('./terrain-worker.js',import.meta.url),{type:'module'});
+    this.atlasWorker.onmessage=({data})=>{this.atlas=data.bitmap;this.pending.delete('surface-atlas');this.atlasWorker.terminate();this.atlasWorker=null;};
+    this.atlasWorker.onerror=()=>{this.pending.delete('surface-atlas');this.atlasWorker.terminate();this.atlasWorker=null;this.atlas=this.makeAtlas();};
+    this.atlasWorker.postMessage({key:'surface-atlas',kind:'atlas'});
+  }else this.atlas=this.makeAtlas();}
+  terrain(ctx,bounds,layer){
+    const size=512,plan=terrainPlan(bounds,layer,SURFACE.width,SURFACE.height);
+    const missing=[];
+    for(const job of plan){
+      const tile=this.tiles.get(job.key);
+      if(!tile&&!this.pending.has(job.key))missing.push(job);
+      if(tile){this.tiles.delete(job.key);this.tiles.set(job.key,tile);if(job.visible){ctx.imageSmoothingEnabled=false;ctx.drawImage(tile,job.gx*size-.5,job.gy*size-.5,size+1,size+1);}}
+    }
+    // Only dispatched jobs are in flight; the rest always follow the latest view.
+    this.terrainQueue=missing;
+    if(this.worker)this.pumpTerrain();
+    else if(missing.length){const job=missing[0],tile=this.makeTerrain(job.gx,job.gy,layer);this.cacheTile(job.key,tile);if(job.visible)ctx.drawImage(tile,job.gx*size-.5,job.gy*size-.5,size+1,size+1);}
   }
   makeTerrain(gx,gy,layer){
     const tile=canvas(256,256),c=tile.getContext('2d');
@@ -105,7 +135,7 @@ export class PixelArt {
     }
     return this.sprites.get(key);
   }
-  draw(ctx,sprite,x,y,scale=2,opacity=1,flip=false){ctx.save();ctx.translate(x,y);ctx.scale(flip?-scale:scale,scale/CAMERA_TILT);ctx.globalAlpha=opacity;ctx.imageSmoothingEnabled=!!sprite.smooth;ctx.drawImage(sprite.image,-sprite.ax,-sprite.ay,sprite.image.width/(sprite.resolution||1),sprite.image.height/(sprite.resolution||1));ctx.restore();}
+  draw(ctx,sprite,x,y,scale=2,opacity=1,flip=false){ctx.save();ctx.translate(x,y);ctx.scale(flip?-scale:scale,scale/CAMERA_TILT);ctx.globalAlpha*=opacity;ctx.imageSmoothingEnabled=!!sprite.smooth;ctx.drawImage(sprite.image,-sprite.ax,-sprite.ay,sprite.image.width/(sprite.resolution||1),sprite.image.height/(sprite.resolution||1));ctx.restore();}
   shadow(ctx,x,y,r=36){if(!this.shadowImage){this.shadowImage=canvas(96,32);const c=this.shadowImage.getContext('2d');oval(c,48,16,46,13,'#111b2148');}ctx.drawImage(this.shadowImage,x-r,y-r*.25,r*2,r*.5);}
   resource(ctx,n,time,player){
     const biome=n.biome||'heartlands',variant=n.variant??Math.floor(grain(n.x,n.y)*12),scale=n.scale||1;

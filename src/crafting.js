@@ -1,3 +1,5 @@
+import {BAITS} from './fishing-tackle.js';
+import {CRAFTING_TABLES,stationRequirement,tableOreCount,spendTableOres} from './crafting-stations.js';
 import {FISH_SPECIES} from './fish-species.js';
 import {FRONTIER_RECIPES,FRONTIER_RESOURCES} from './frontier-items.js';
 import { MATERIALS } from './materials.js';
@@ -9,7 +11,7 @@ export const RECIPES = [
   {id:'wood-bow',name:'Wood Bow',category:'tool',type:'bow',tier:'wood',damage:12,cost:{wood:4,sticks:3,leaves:3},detail:'Click to fire an arrow. Buy arrows from a blacksmith.'},
   {id:'slingshot',name:'Slingshot',category:'tool',type:'slingshot',tier:'wood',damage:7,cost:{sticks:3,hide:1,leaves:2},detail:'Click to shoot a stone toward the cursor. Uses one stone per shot.'},
   { id:'campfire', name:'Campfire', category:'structure', tier:'wood', cost:{wood:4,stone:4}, detail:'Place it, add wood as fuel, then cook raw meat.' },
-  { id:'fishing-rod', name:'Fishing Rod', category:'tool', type:'rod', tier:'wood', damage:1, cost:{sticks:3,wood:2,leaves:2}, detail:'Cast into a lake from the shore. Reel in fish when the bobber bites.' },
+  { id:'fishing-rod', name:'Fishing Rod', category:'tool', type:'rod', tier:'wood', damage:1, cost:{sticks:3,wood:2,leaves:2}, detail:'Select bait in your bag and cast from shore. Watch for ripples, then click repeatedly after a bite. Upgrade range, luck and strength at a blacksmith.' },
   { id:'hand-rock', name:'Hand Rock', category:'tool', type:'rock', tier:'stone', damage:3, cost:{stone:1}, detail:'A first weapon you can make from one pebble.' },
   { id:'leaf-wrap', name:'Leaf Wrap', category:'gear', slot:'body', tier:'leaf', defense:1, cost:{leaves:3}, detail:'Light starter armor · blocks 1 damage.' },
   { id:'wood-club', name:'Wood Club', category:'tool', type:'club', tier:'wood', damage:5, cost:{wood:3}, detail:'A sturdy early weapon · 5 combat damage.' },
@@ -50,7 +52,7 @@ export const RECIPES = [
   { id:'moonstone-armor', name:'Moonstone Armor', category:'gear', slot:'body', tier:'moonstone', defense:8, cost:{moonstone:7,shell:2,glimmer:1}, detail:'Moon Vault armor · defense perk.' },
 ];
 
-RESOURCES.push(...Object.keys(FRONTIER_RESOURCES),...FISH_SPECIES.map(f=>f.id));RECIPES.push(...FRONTIER_RECIPES);
+RESOURCES.push(...BAITS.map(b=>b.id),...Object.keys(FRONTIER_RESOURCES),...FISH_SPECIES.map(f=>f.id));RECIPES.push(...FRONTIER_RECIPES,...CRAFTING_TABLES);
 for(const material of MATERIALS){
   if(!RESOURCES.includes(material.id))RESOURCES.push(material.id);
   for(const type of ['axe','pickaxe','club','armor']){
@@ -68,12 +70,14 @@ for(const m of MATERIALS.filter(m=>m.depth>=2))for(const [type,multiplier,amount
  RECIPES.push({id:`${m.id}-${type}`,name:`${m.name} ${type[0].toUpperCase()+type.slice(1)}`,category:'tool',type,tier:m.id,damage:Math.ceil((m.damage+2)*multiplier),level:m.level,cost:{[m.id]:amount,wood:3,hide:2},range,cooldown,knockback,detail:type==='sword'?'Faster swings and more damage than a club; costs more ore.':type==='spear'?'Long reach with moderate damage and knockback.':'Heavy damage and strong knockback; slow swings.'});
 }
 export class Inventory {
-  constructor({level=1}={}) {
+  constructor({level=1,tableTier=0}={}) {
+    this.tableTier=Math.max(0,Math.min(6,tableTier));
     this.coins=0;
     this.progression=new Progression(level);
     this.resources = Object.fromEntries(RESOURCES.map(resource=>[resource,0]));
     this.owned = new Map();
     this.structures=Object.fromEntries(RECIPES.filter(r=>r.category==='structure').map(r=>[r.id,0]));
+    this.fishingBait='worms';
     this.equippedTool = null;
     this.equippedGear = null;
   }
@@ -83,17 +87,22 @@ export class Inventory {
   }
   consume(resource,amount){if(!RESOURCES.includes(resource)||!Number.isFinite(amount)||amount<=0||this.resources[resource]<amount)return false;this.resources[resource]-=amount;return true;}
   canCraft(recipe) {
-    return !recipe.questOnly && this.progression.level>=(recipe.level||1) && (recipe.category==='structure'||!this.owned.has(recipe.id)) && (!recipe.requires || this.owned.has(recipe.requires)) && Object.entries(recipe.cost).every(([resource, amount]) => this.resources[resource] >= amount);
+    return !recipe.questOnly && this.tableTier>=stationRequirement(recipe) && (!recipe.oreAmount||tableOreCount(recipe,this)>=recipe.oreAmount) && this.progression.level>=(recipe.level||1) && (recipe.category==='structure'||!this.owned.has(recipe.id)) && (!recipe.requires || this.owned.has(recipe.requires)) && Object.entries(recipe.cost).every(([resource, amount]) => this.resources[resource] >= amount);
   }
   craft(recipeId) {
     const recipe = RECIPES.find(r => r.id === recipeId);
     if (!recipe) return { ok:false, message:'Unknown recipe' };
     if(recipe.questOnly)return {ok:false,message:'Complete the fisherman’s ten quests to earn this armor.'};
     if(this.progression.level<(recipe.level||1))return {ok:false,message:`Requires level ${recipe.level}`};
+    if(this.tableTier<stationRequirement(recipe))return {ok:false,message:`Craft a level ${stationRequirement(recipe)} crafting table first.`};
+    if(recipe.oreAmount&&tableOreCount(recipe,this)<recipe.oreAmount)return {ok:false,message:`Gather ${recipe.oreAmount} ore from cave level ${recipe.oreDepth}. Any mix of ores at that level works.`};
     if (recipe.category!=='structure'&&this.owned.has(recipe.id)) return { ok:false, message:'Already crafted' };
     if(recipe.requires&&!this.owned.has(recipe.requires))return {ok:false,message:`Craft ${RECIPES.find(r=>r.id===recipe.requires).name} first`};
     if (!this.canCraft(recipe)) return { ok:false, message:'Gather more resources' };
+    spendTableOres(recipe,this);
+    if(recipe.tableTier)this.tableTier=Math.max(this.tableTier,recipe.tableTier);
     for (const [resource, amount] of Object.entries(recipe.cost)) this.resources[resource] -= amount;
+    if(recipe.category==='resource'){this.add(recipe.id,1);this.progression.gain(20);return {ok:true,recipe,item:null};}
     if(recipe.category==='structure'){this.structures[recipe.id]=(this.structures[recipe.id]||0)+1;return {ok:true,recipe,item:null};}
     const item = recipe.category === 'tool'
       ? new Tool(recipe)

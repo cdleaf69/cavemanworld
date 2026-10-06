@@ -1,3 +1,4 @@
+import {BAITS} from './fishing-tackle.js';
 import {FISH_SPECIES} from './fish-species.js';
 import {FRONTIER_RESOURCES} from './frontier-items.js';
 import { MATERIALS } from './materials.js';
@@ -30,12 +31,13 @@ const RESOURCE_DETAILS={
   glimmer:['Glimmer','Shiny creatures, especially deep below','Used for rare moonstone equipment.','✺'],
 };
 
-Object.assign(RESOURCE_DETAILS,FRONTIER_RESOURCES);for(const f of FISH_SPECIES)RESOURCE_DETAILS[f.id]=[f.name,'Lake or ocean fishing',`${f.length} cm · sells for ${f.value} coins · raw cooking ingredient.`,'◁'];
+Object.assign(RESOURCE_DETAILS,FRONTIER_RESOURCES);for(const b of BAITS)RESOURCE_DETAILS[b.id]=[b.name,'Marlow the beach fisherman',`${b.luck}× luck · ${b.strength}× reeling strength · ${b.speed}× bite speed. One bait per cast. ${b.amount} for ${b.price} coins.`,'⌁'];for(const f of FISH_SPECIES)RESOURCE_DETAILS[f.id]=[f.name,'Lake or ocean fishing',`${f.length} cm · sells for ${f.value} coins · raw cooking ingredient.`,'◁'];
 export function resourceName(id){return RESOURCE_DETAILS[id]?.[0]||id;}
-for(const m of MATERIALS)RESOURCE_DETAILS[m.id]=[m.name,`Depth ${m.depth} · ${m.biome} caves`,`Level ${m.level} equipment · ${m.stat} armor bonus. Equal base strength to other biome materials at this depth.`,'◆'];
-export function visibleResources(inventory){return RESOURCES.filter(id=>(inventory.resources[id]||0)>0);}
+for(const m of MATERIALS)RESOURCE_DETAILS[m.id]=[m.name,`Ore Level ${m.depth} · ${m.biome} caves`,`Player level ${m.level} equipment · ${m.stat} armor bonus. Equal base strength to other biome materials at this depth.`,'◆'];
+export function oreLevel(id){return id==='iron'?1:MATERIALS.find(m=>m.id===id)?.depth||0;}
+export function visibleResources(inventory){return RESOURCES.filter(id=>(inventory.resources[id]||0)>0).sort((a,b)=>Number(!!oreLevel(b))-Number(!!oreLevel(a))||oreLevel(a)-oreLevel(b)||resourceName(a).localeCompare(resourceName(b)));}
 export function indexEntries(inventory){
-  const resources=RESOURCES.map(id=>{const [name,source,detail,symbol]=RESOURCE_DETAILS[id];return {id,name,kind:'resource',group:'Resources',source,detail,symbol,count:inventory.resources[id]||0};});
-  const crafted=RECIPES.map(recipe=>({id:recipe.id,name:recipe.name,kind:recipe.category,group:recipe.category==='tool'?'Weapons & Tools':recipe.category==='gear'?'Armor':'Structures',source:recipe.category==='structure'?'Crafting menu':`Crafting menu · ${recipe.tier} tier`,detail:recipe.detail,symbol:null,count:recipe.category==='structure'?(inventory.structures[recipe.id]||0):Number(inventory.owned.has(recipe.id)),recipe}));
+  const resources=[...RESOURCES].sort((a,b)=>Number(!!oreLevel(b))-Number(!!oreLevel(a))||oreLevel(a)-oreLevel(b)).map(id=>{const [name,source,detail,symbol]=RESOURCE_DETAILS[id];return {id,name,kind:'resource',group:oreLevel(id)?`Ores · Level ${oreLevel(id)}`:'Resources',source,detail,symbol,count:inventory.resources[id]||0,recipe:RECIPES.find(r=>r.id===id&&r.category==='resource')};});
+  const crafted=RECIPES.filter(r=>r.category!=='resource').map(recipe=>({id:recipe.id,name:recipe.name,kind:recipe.category,group:recipe.category==='tool'?'Weapons & Tools':recipe.category==='gear'?'Armor':'Structures',source:recipe.category==='structure'?'Crafting menu':`Crafting menu · ${recipe.tier} tier`,detail:recipe.detail,symbol:null,count:recipe.category==='structure'?(inventory.structures[recipe.id]||0):Number(inventory.owned.has(recipe.id)),recipe}));
   return [...resources,...crafted];
 }
