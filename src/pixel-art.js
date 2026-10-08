@@ -1,7 +1,7 @@
 import {terrainPlan} from './terrain-plan.js';
 import {biomeBlend} from './biome-shapes.js';
 import {RIVER_HALF_WIDTH} from './world.js';
-import { BIOMES, SURFACE, PATHS, RIVER, HUTS, CAVE_ROOMS, TUNNELS, DEEP_ROOMS, DEEP_TUNNELS, distanceToSegment, lakeWaterDistance } from './world.js';
+import { BIOMES, SURFACE, LAYERS, PATHS, RIVER, HUTS, CAVE_ROOMS, TUNNELS, DEEP_ROOMS, DEEP_TUNNELS, distanceToSegment, lakeWaterDistance } from './world.js';
 import { CAMERA_TILT } from './camera.js';
 
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
@@ -60,7 +60,7 @@ const metals={leaf:'#82a768',wood:'#b8915d',stone:'#a5aca0',iron:'#bbd2d0',coppe
 
 export class PixelArt {
   constructor({worker=true}={}){
-    this.tiles=new Map();this.sprites=new Map();this.pending=new Set();this.workers=[];this.terrainQueue=[];
+    this.tiles=new Map();this.sprites=new Map();this.pending=new Set();this.workers=[];this.terrainQueue=[];this.warmJobs=[];this.protectedTiles=new Set();
     if(worker&&typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined'){
       const count=Math.min(2,Math.max(1,(globalThis.navigator?.hardwareConcurrency||2)-1));
       for(let i=0;i<count;i++){
@@ -79,7 +79,7 @@ export class PixelArt {
       if(!job)break;w.busy=true;w.jobKey=job.key;this.pending.add(job.key);w.postMessage(job);
     }
   }
-  cacheTile(key,tile){this.tiles.set(key,tile);if(this.tiles.size>512){const oldest=this.tiles.keys().next().value;this.tiles.get(oldest)?.close?.();this.tiles.delete(oldest);}}
+  cacheTile(key,tile){this.tiles.get(key)?.close?.();this.tiles.set(key,tile);if(this.tiles.size>512){const oldest=[...this.tiles.keys()].find(k=>!this.protectedTiles.has(k))??this.tiles.keys().next().value;this.tiles.get(oldest)?.close?.();this.tiles.delete(oldest);}}
   requestCaveAtlas(layer){
     this.caveAtlases??=new Map();const key='cave-atlas:'+layer;
     if(this.caveAtlases.has(layer)||this.pending.has(key))return;
@@ -95,18 +95,30 @@ export class PixelArt {
     this.atlasWorker.onerror=()=>{this.pending.delete('surface-atlas');this.atlasWorker.terminate();this.atlasWorker=null;this.atlas=this.makeAtlas();};
     this.atlasWorker.postMessage({key:'surface-atlas',kind:'atlas'});
   }else this.atlas=this.makeAtlas();}
+  prewarm(bounds,layer){
+    const world=LAYERS[layer]||SURFACE;
+    this.warmJobs=terrainPlan(bounds,layer,world.width,world.height).filter(j=>j.visible);
+    this.warmUntil=performance.now()+10000;
+  }
   terrain(ctx,bounds,layer){
-    const size=512,plan=terrainPlan(bounds,layer,SURFACE.width,SURFACE.height);
-    const missing=[];
+    const size=512,world=LAYERS[layer]||SURFACE;
+    const signature=`${layer}:${Math.floor(bounds.left/size)}:${Math.ceil(bounds.right/size)}:${Math.floor(bounds.top/size)}:${Math.ceil(bounds.bottom/size)}`;
+    if(signature!==this.planSignature){this.planSignature=signature;this.viewPlan=terrainPlan(bounds,layer,world.width,world.height);}
+    const plan=this.viewPlan,visibleMissing=[],hiddenMissing=[],hiddenPlan=[];
+    this.protectedTiles.clear();
     for(const job of plan){
       const tile=this.tiles.get(job.key);
-      if(!tile&&!this.pending.has(job.key))missing.push(job);
-      if(tile){this.tiles.delete(job.key);this.tiles.set(job.key,tile);if(job.visible){ctx.imageSmoothingEnabled=false;ctx.drawImage(tile,job.gx*size-.5,job.gy*size-.5,size+1,size+1);}}
+      const visible=job.gx*size<bounds.right&&(job.gx+1)*size>bounds.left&&job.gy*size<bounds.bottom&&(job.gy+1)*size>bounds.top;
+      if(visible)this.protectedTiles.add(job.key);else hiddenPlan.push(job);
+      if(!tile&&!this.pending.has(job.key))(visible?visibleMissing:hiddenMissing).push(job);
+      if(tile){this.tiles.delete(job.key);this.tiles.set(job.key,tile);if(visible){ctx.imageSmoothingEnabled=false;ctx.drawImage(tile,job.gx*size-.5,job.gy*size-.5,size+1,size+1);}}
     }
-    // Only dispatched jobs are in flight; the rest always follow the latest view.
-    this.terrainQueue=missing;
+    const warming=[];
+    if(performance.now()<(this.warmUntil||0))for(const job of this.warmJobs){if(job.layer===layer||this.protectedTiles.size>=512)continue;this.protectedTiles.add(job.key);if(!this.tiles.has(job.key)&&!this.pending.has(job.key))warming.push(job);}
+    const hiddenBudget=Math.max(0,512-this.protectedTiles.size),allowedHidden=new Set(hiddenPlan.slice(0,hiddenBudget).map(j=>j.key));
+    this.terrainQueue=[...visibleMissing,...warming,...hiddenMissing.filter(j=>allowedHidden.has(j.key))];
     if(this.worker)this.pumpTerrain();
-    else if(missing.length){const job=missing[0],tile=this.makeTerrain(job.gx,job.gy,layer);this.cacheTile(job.key,tile);if(job.visible)ctx.drawImage(tile,job.gx*size-.5,job.gy*size-.5,size+1,size+1);}
+    else if(this.terrainQueue.length){const job=this.terrainQueue[0],tile=this.makeTerrain(job.gx,job.gy,job.layer);this.cacheTile(job.key,tile);if(job.layer===layer&&job.visible)ctx.drawImage(tile,job.gx*size-.5,job.gy*size-.5,size+1,size+1);}
   }
   makeTerrain(gx,gy,layer){
     const tile=canvas(256,256),c=tile.getContext('2d');
@@ -127,8 +139,8 @@ export class PixelArt {
       const source=make(),resolution=source.resolution||1,pad=2*resolution;
       const image=canvas(source.image.width+pad*2,source.image.height+pad*2),c=image.getContext('2d');
       // Bake a thin, colored silhouette once, rather than outlining per frame.
-      const radius=.7*resolution;
-      for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1],[-.7,-.7],[.7,-.7],[-.7,.7],[.7,.7]])c.drawImage(source.image,pad+dx*radius,pad+dy*radius);
+      const radius=(source.crispOutline?1:.7)*resolution;c.imageSmoothingEnabled=!source.crispOutline;
+      for(const [dx,dy] of (source.crispOutline?[[-1,0],[1,0],[0,-1],[0,1]]:[[-1,0],[1,0],[0,-1],[0,1],[-.7,-.7],[.7,-.7],[-.7,.7],[.7,.7]]))c.drawImage(source.image,pad+dx*radius,pad+dy*radius);
       c.globalCompositeOperation='source-in';c.fillStyle='#30443ddb';c.fillRect(0,0,image.width,image.height);
       c.globalCompositeOperation='source-over';c.drawImage(source.image,pad,pad);
       this.sprites.set(key,{...source,image,ax:source.ax+pad/resolution,ay:source.ay+pad/resolution});
@@ -137,13 +149,13 @@ export class PixelArt {
   }
   draw(ctx,sprite,x,y,scale=2,opacity=1,flip=false){ctx.save();ctx.translate(x,y);ctx.scale(flip?-scale:scale,scale/CAMERA_TILT);ctx.globalAlpha*=opacity;ctx.imageSmoothingEnabled=!!sprite.smooth;ctx.drawImage(sprite.image,-sprite.ax,-sprite.ay,sprite.image.width/(sprite.resolution||1),sprite.image.height/(sprite.resolution||1));ctx.restore();}
   shadow(ctx,x,y,r=36){if(!this.shadowImage){this.shadowImage=canvas(96,32);const c=this.shadowImage.getContext('2d');oval(c,48,16,46,13,'#111b2148');}ctx.drawImage(this.shadowImage,x-r,y-r*.25,r*2,r*.5);}
-  resource(ctx,n,time,player){
+  resource(ctx,n,time,player,hovered=false){
     const biome=n.biome||'heartlands',variant=n.variant??Math.floor(grain(n.x,n.y)*12),scale=n.scale||1;
     const key=`${n.kind}:${biome}:${n.resource}:${variant}`;
     const sprite=this.sprite(key,()=>this.makeResource(n.kind,biome,n.resource,variant));
     this.shadow(ctx,n.x,n.y,n.kind==='tree'?52*scale:n.radius);
     const obscures=n.kind==='tree'&&player&&Math.abs(player.x-n.x)<80*scale&&player.y<n.y&&player.y>n.y-190*scale;
-    this.draw(ctx,sprite,n.x,n.y,(n.kind==='tree'?1.65:1.8)*scale,obscures?.5:1);
+    this.draw(ctx,sprite,n.x,n.y-(hovered&&n.kind==='ground'&&n.resource==='stone'?7:0),(n.kind==='tree'?1.65:1.8)*scale,obscures?.5:1);
   }
   makeResource(kind,biome,resource,variant){
     const tree=kind==='tree',image=canvas(tree?112:64,tree?148:66),c=image.getContext('2d'),ax=tree?56:32,ay=tree?138:55;

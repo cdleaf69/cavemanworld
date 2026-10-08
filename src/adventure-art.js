@@ -1,3 +1,5 @@
+import {leafMass,sceneryRock,sceneryMushroom,sceneryPolygon} from './scenery-art.js';
+import {equipmentPalette} from './refined-equipment-art.js';
 import {drawNpcHair} from './npc-hair.js';
 import {equipmentStyle} from './equipment-design.js';
 import {drawMob} from './mob-art.js';
@@ -22,29 +24,24 @@ export class AdventureArt extends ToyArt {
     for(let i=0;i<70;i++){const x=Math.floor(grain(gx*71+i,gy)*254),y=Math.floor(grain(gy*71+i,gx)*254);const color=layer==='surface'?'#537f4930':layer==='ocean'?'#a8d4cf20':'#c4bada25';rect(c,x,y,2,1,color);if(i%3===0)rect(c,x+1,y-2,1,3,color);}
     return image;
   }
-  resource(ctx,n,time,player){
-    if(n.kind==='bush'){n.crop??=CROPS.find(c=>forageCrop(n)[c.id]);super.resource(ctx,{...n,resource:n.crop?.id||n.resource},time,player);}else super.resource(ctx,n,time,player);
+  resource(ctx,n,time,player,hovered=false){
+    if(n.kind==='bush'){n.crop??=CROPS.find(c=>forageCrop(n)[c.id]);super.resource(ctx,{...n,resource:n.crop?.id||n.resource},time,player,hovered);}else super.resource(ctx,n,time,player,hovered);
   }
   makeResource(kind,biome,resource,variant){
     if(kind==='rock'||kind==='ore'){
       const image=canvas(64,66),c=image.getContext('2d'),form=variant%4;
       const stone=({tundra:['#607f96','#b9d8df','#87a9bc'],marsh:['#526c62','#9cb89a','#718e79'],badlands:['#95684f','#e5be84','#be9162'],volcanic:['#504960','#a39aba','#756a8d']})[biome]||['#536b7c','#b3c8c8','#829ba5'];
-      const facet=(points,color)=>{c.fillStyle=color;c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fill();};
-      if(form===0){facet([[8,49],[14,28],[31,18],[49,25],[57,48],[43,56],[20,55]],stone[0]);facet([[14,28],[31,18],[49,25],[37,39],[17,42]],stone[1]);facet([[17,42],[37,39],[43,56],[20,55]],stone[2]);}
-      else if(form===1){facet([[8,49],[12,39],[27,31],[49,33],[58,46],[51,55],[18,56]],stone[0]);facet([[12,39],[27,31],[49,33],[53,42],[24,46]],stone[1]);facet([[12,46],[24,46],[51,44],[51,51],[18,53]],stone[2]);}
-      else if(form===2){facet([[16,55],[13,39],[22,12],[36,9],[48,25],[47,53]],stone[0]);facet([[22,12],[36,9],[38,35],[20,42]],stone[1]);facet([[20,42],[38,35],[34,54],[16,55]],stone[2]);rect(c,27,28,3,13,stone[0]);}
-      else{for(const [x,y,s] of [[9,42,19],[29,29,25],[41,45,16]]){facet([[x,y+10],[x+3,y-4],[x+s-5,y-7],[x+s,y+8],[x+s-6,y+13]],stone[0]);facet([[x+3,y-4],[x+s-5,y-7],[x+s-3,y+2],[x+5,y+5]],stone[1]);}}
-      if(kind==='ore'){const color=MATERIAL_COLORS[resource]||'#d6dbea';for(let i=0;i<4;i++){const x=20+i*7,y=35+(i%2)*8;rect(c,x,y,5,7,color);rect(c,x,y,2,3,'#fff5df');}}
-      else if((biome==='woodland'||biome==='marsh')&&variant%3===0){rect(c,17,39,13,4,'#6eaa69');rect(c,23,36,8,4,'#97c477');}
-      return {image,ax:32,ay:55};
+      sceneryRock(c,form,stone,kind==='ore'?(MATERIAL_COLORS[resource]||'#d6dbea'):null);
+      if(kind==='rock'&&(biome==='woodland'||biome==='marsh')&&variant%3===0){rect(c,17,39,10,3,'#567b55');rect(c,20,38,7,2,'#9ab67b');}
+      return {image,ax:32,ay:55,crispOutline:true};
     }
+    if(kind==='ground'&&resource==='stone'){const image=canvas(64,66),c=image.getContext('2d');c.save();c.translate(11,20);c.scale(.65,.65);sceneryRock(c,variant%3,['#4b666a','#b4c9be','#799994']);c.restore();return {image,ax:32,ay:55,crispOutline:true};}
     if(kind==='ground'&&(resource==='sticks'||resource==='wood')){
-      const image=canvas(192,198),c=image.getContext('2d');c.scale(3,3);
-      c.lineCap='round';c.lineJoin='round';
-      const line=(points,color,width)=>{c.strokeStyle=color;c.lineWidth=width;c.beginPath();c.moveTo(...points[0]);for(const point of points.slice(1))c.lineTo(...point);c.stroke();};
-      line([[20,53],[43,30]],'#936642',5);line([[20,51],[41,30]],'#dab17a',1.5);
-      line([[29,44],[27,38]],'#936642',2);line([[37,36],[43,36]],'#936642',2);
-      return {image,ax:32,ay:55,resolution:3,smooth:true};
+      const image=canvas(64,66),c=image.getContext('2d');
+      sceneryPolygon(c,[[17,51],[19,46],[29,37],[28,30],[31,29],[33,34],[42,25],[46,24],[47,28],[37,39],[44,38],[45,41],[34,43],[23,55],[19,56]],'#514b3b');
+      sceneryPolygon(c,[[19,51],[32,37],[43,27],[45,27],[32,41],[22,53]],'#b18c58');
+      sceneryPolygon(c,[[20,49],[32,35],[43,26],[43,28],[31,39],[20,52]],'#debb7f');rect(c,29,32,2,6,'#a47a4b');rect(c,37,40,5,1,'#debb7f');
+      return {image,ax:32,ay:55,crispOutline:true};
     }
     if(kind!=='tree'&&kind!=='bush'){
       const sprite=super.makeResource(kind,biome,resource,variant);
@@ -58,13 +55,11 @@ export class AdventureArt extends ToyArt {
     const tree=kind==='tree',image=canvas(tree?112:64,tree?148:66),c=image.getContext('2d');
     let p=palettes[biome]||palettes.heartlands;
     if(['heartlands','woodland'].includes(biome)&&variant>=8)p=variant%2?['#6f5e38','#aa793e','#d9a44e','#f4cf77']:['#285c61','#367e75','#62ab85','#a1d4a0'];
-    const crown=(x,y,rx,ry,seed)=>{
-      ellipse(c,x,y,rx,ry,p[0]);ellipse(c,x-2,y-4,rx-2,ry-3,p[1]);ellipse(c,x-5,y-8,rx-7,ry-8,p[2]);
-      for(let i=0;i<18;i++){const a=grain(i,seed)*Math.PI*2,r=grain(seed,i)*.82,px=x+Math.cos(a)*rx*r,py=y+Math.sin(a)*ry*r;rect(c,px,py,4,2,i%4===0?p[3]:p[2]);}
-    };
+    const crown=(x,y,rx,ry,seed)=>leafMass(c,x,y,rx,ry,p,seed);
     if(tree){
       const form=variant%4,bark=biome==='tundra'?['#687663','#b5b394','#d2d0ab']:['#71513a','#a67a48','#c89c5e'];
       // A clear trunk and restrained foliage leave open air between trees.
+      sceneryPolygon(c,[[52,132],[48,138],[55,136],[59,137],[67,138],[62,130],[61,63],[57,43],[53,59]],bark[0]);
       rect(c,53,43,8,91,bark[0]);rect(c,54,48,3,84,bark[1]);rect(c,54,53,1,70,bark[2]);
       rect(c,52,111,9,23,bark[0]);rect(c,53,111,3,23,bark[1]);
       for(let i=0;i<6;i++){const y=62+i*11;rect(c,58,y,2,3,bark[0]);if(i%2===0)rect(c,54,y+6,2,2,bark[2]);}
@@ -72,23 +67,20 @@ export class AdventureArt extends ToyArt {
       rect(c,46,82,8,3,bark[0]);rect(c,44,76,3,8,bark[0]);rect(c,44,76,1,5,bark[1]);
       rect(c,60,99,8,3,bark[0]);rect(c,66,92,3,9,bark[0]);rect(c,67,93,1,6,bark[1]);
       rect(c,51,130,12,5,bark[0]);rect(c,48,134,6,3,bark[0]);rect(c,61,133,5,3,bark[0]);rect(c,46,136,6,2,bark[0]);rect(c,65,136,3,2,bark[0]);rect(c,52,131,3,4,bark[1]);
-      const leaves=(x,y,rx,ry,seed)=>{
-        // Small overlapping leaf masses form a single uneven crown, with quiet dappled shading.
-        for(const [dx,dy,sx,sy] of [[-rx*.52,3,.56,.65],[rx*.48,1,.58,.68],[0,-ry*.36,.75,.72],[0,ry*.25,.7,.62]])ellipse(c,x+dx,y+dy,Math.round(rx*sx),Math.round(ry*sy),p[0]);
-        ellipse(c,x-1,y-2,rx-3,ry-3,p[1]);ellipse(c,x-4,y-5,rx-7,ry-7,p[2]);
-        for(let i=0;i<38;i++){
-          const px=Math.round(x+(grain(i,seed,17)-.5)*rx*1.65),py=Math.round(y+(grain(seed,i,19)-.5)*ry*1.6);
-          if(((px-x)/rx)**2+((py-y)/ry)**2>.78)continue;
-          rect(c,px,py,2+(i%2),1+(i%3===0?1:0),i%7===0?p[3]:i%3===0?p[0]:p[1]);
-        }
-      };
+      const leaves=(x,y,rx,ry,seed)=>leafMass(c,x,y,rx,ry,p,seed);
       if(form===0){
         // Open, compact pine boughs above a visible lower trunk.
         for(let i=4;i>=0;i--){const y=16+i*13,w=9+i*4;for(let row=0;row<23;row+=2){const half=Math.round(w*row/23);rect(c,56-half,y+row,half*2,2,row>17?p[0]:p[1]);}for(let j=0;j<6;j++)rect(c,48+j*3,y+16+(j%2)*2,3,1,p[2]);}
       }else{
         const rx=form===1?29:form===2?23:27,ry=form===1?23:form===2?28:25;
-        leaves(56,35,rx,ry,variant+7);
-        if(form===2)leaves(45,82,7,7,variant+17);
+        // Branch-supported, overlapping foliage gives broadleaf trees real volume.
+        sceneryPolygon(c,[[54,81],[36,57],[30,51],[33,48],[47,58],[57,66],[73,47],[78,40],[80,44],[68,65],[60,76]],bark[0]);
+        sceneryPolygon(c,[[55,71],[35,51],[37,51],[55,66],[74,46],[74,49],[60,72]],bark[1]);
+        leaves(38,47,Math.round(rx*.7),Math.round(ry*.8),variant+3);
+        leaves(74,43,Math.round(rx*.8),Math.round(ry*.9),variant+5);
+        leaves(54,29,Math.round(rx*.85),ry,variant+7);
+        leaves(57,53,Math.round(rx*.75),Math.round(ry*.65),variant+9);
+        if(form===2)leaves(45,82,10,8,variant+17);
         else if(form===3)leaves(68,91,7,6,variant+19);
         if(biome==='marsh')for(let i=0;i<4;i++){const x=37+i*12;rect(c,x,52,1,11+(i%2)*7,p[1]);rect(c,x-1,60,2,3,p[2]);}
       }
@@ -103,11 +95,11 @@ export class AdventureArt extends ToyArt {
     if(!tree){const crop=CROPS.find(c=>c.id===resource);if(crop){
       if(['cactusFruit','bogRice','forestMushroom'].includes(crop.id))c.clearRect(0,0,64,66);
       if(crop.id==='cactusFruit'){rect(c,27,12,11,43,'#48965f');rect(c,14,27,14,7,'#48965f');rect(c,14,20,6,12,'#6ab771');rect(c,37,34,15,7,'#48965f');rect(c,46,24,6,14,'#6ab771');rect(c,30,15,3,35,'#8ec781');rect(c,27,9,10,7,crop.color);rect(c,46,21,7,6,crop.color);}
-      else if(crop.id==='forestMushroom'){for(let i=0;i<3;i++){rect(c,15+i*13,36+(i%2)*5,5,18,'#ead7ad');ellipse(c,17+i*13,33+(i%2)*5,11,8,crop.color);rect(c,12+i*13,30+(i%2)*5,5,2,'#fff1d2');}}
+      else if(crop.id==='forestMushroom'){for(let i=0;i<3;i++)sceneryMushroom(c,15+i*14,32+(i%2)*5,.9,crop.color);}
       else if(crop.id==='bogRice'){for(let i=0;i<5;i++){rect(c,10+i*10,22+(i%2)*6,2,33-(i%2)*6,'#6d9b5b');for(let j=0;j<4;j++)rect(c,7+i*10+(j%2)*4,18+j*5+(i%2)*6,4,3,crop.color);}}
       else for(let i=0;i<4;i++){const x=13+i*10,y=30+(i%2)*10;if(crop.id==='sunMelon')ellipse(c,x,y,7,5,crop.color);else{rect(c,x,y,5,5,crop.color);rect(c,x,y,2,2,'#ffe7b8');}}
     }}
-    return {image,ax:tree?56:32,ay:tree?138:55};
+    return {image,ax:tree?56:32,ay:tree?138:55,crispOutline:true};
   }
   creature(ctx,m,time){drawMob(this,ctx,m,time);}
   decoration(ctx,d){
@@ -123,11 +115,11 @@ export class AdventureArt extends ToyArt {
           polygon([[x+1,top+9],[x+5,top+2],[x+4,39]],'#e5f3e1');rect(c,x+2,top+12,1,8,'#f4fff0');rect(c,x+2,44,6,1,'#bfe0df');
         }rect(c,3,47,37,2,'#526278');
       }else if(d.kind==='mushroom'){
-        for(let i=0;i<2;i++){const x=12+i*19,y=26-i*7;rect(c,x-2,y,5,22+i*6,'#b59e83');rect(c,x-1,y,2,21+i*6,'#f2dfaf');ellipse(c,x,y,10,8,'#66546e');ellipse(c,x,y-2,9,7,i?'#d98794':'#91bd83');ellipse(c,x-3,y-5,4,2,i?'#f1b2a4':'#cfe0a2');rect(c,x-9,y+2,18,3,'#b7a4a1');for(let j=0;j<4;j++)rect(c,x-7+j*4,y+3,1,3,'#816b7e');for(const [dx,dy] of [[-5,-3],[3,-5],[5,0]])rect(c,x+dx,y+dy,2,2,'#fbefcd');}
+        sceneryMushroom(c,12,26,1,'#91ad75');sceneryMushroom(c,31,19,1,'#bb7881');
       }else if(d.kind==='bone'){
         c.strokeStyle='#9c8e7d';c.lineWidth=6;c.beginPath();c.moveTo(8,43);c.lineTo(32,22);c.stroke();c.strokeStyle='#eadcb5';c.lineWidth=4;c.stroke();for(const [x,y] of [[6,42],[11,46],[30,19],[35,23]]){ellipse(c,x,y,3,3,'#f6e9c8');rect(c,x-1,y-2,2,1,'#fff6db');}
       }else{for(let i=0;i<5;i++){polygon([[5+i*7,46],[7+i*7,36-i%2*7],[13+i*7,37],[17+i*7,46]],i%2?'#7c6e89':'#635e73');rect(c,8+i*7,37,3,1,'#ac91ac');}}
-      return {image,ax:22,ay:49};
+      return {image,ax:22,ay:49,crispOutline:true};
     });this.draw(ctx,sprite,d.x,d.y,1.4);
   }
   hut(ctx,h,index){
@@ -140,7 +132,12 @@ export class AdventureArt extends ToyArt {
       if(index%3===1){rect(c,105,22,10,25,'#7c8c8e');rect(c,103,21,14,4,'#b6c1af');}
       if(index%3!==0){rect(c,34,96,14,16,'#507366');rect(c,36,98,10,11,'#eed093');rect(c,40,98,2,11,'#967449');rect(c,96,96,14,16,'#507366');rect(c,98,98,10,11,'#eed093');}
 
-      rect(c,13,88,124,7,'#7f6043');rect(c,57,93,36,29,'#70513b');rect(c,63,95,24,27,'#304b46');rect(c,67,94,4,28,'#b59b6a');rect(c,58,120,34,4,'#d6bb83');
+      // Roof courses, timber joints, and recessed windows make the shelter
+      // follow the same layered material treatment as equipment.
+      for(let row=0;row<6;row++){const y=47+row*7,left=75-(y-10)*.75,right=75+(y-10)*.75;for(let x=Math.ceil(left/14)*14+(row%2)*7;x<right-8;x+=14){rect(c,x,y,9,1,'#f0c68666');rect(c,x+10,y+1,1,4,'#694f3844');}}
+      for(const x of [28,116]){rect(c,x,84,5,34,'#634b39');rect(c,x+1,85,1,31,'#e2c28b');rect(c,x,89,4,2,'#4c4536');rect(c,x,112,4,2,'#4c4536');}
+      for(const x of [34,96]){rect(c,x-2,113,19,3,'#654c39');rect(c,x-1,113,17,1,'#e6c58b');rect(c,x+2,98,3,8,'#fff1ba55');rect(c,x+5,105,5,3,'#ac906366');}
+      rect(c,13,88,124,7,'#7f6043');rect(c,57,93,36,29,'#70513b');rect(c,63,95,24,27,'#304b46');rect(c,67,94,4,28,'#b59b6a');rect(c,58,120,34,4,'#d6bb83');rect(c,55,124,41,3,'#68766b');rect(c,57,124,37,1,'#b8c4aa');
       return {image,ax:75,ay:122};
     });this.shadow(ctx,h.x,h.y,h.r*.7);this.draw(ctx,sprite,h.x,h.y,1.85);
   }
@@ -150,7 +147,7 @@ export class AdventureArt extends ToyArt {
     const back=Math.sin(p.facing)<-.45,side=Math.abs(Math.cos(p.facing))>.7,step=p.moving?[0,1,0,-1][Math.floor(time/145)%4]:0,armor=inventory.equippedGear?.tier,style=p.appearance||{},tool=fishing?.active?fishing.tool:inventory.equippedTool?.type==='transport'?null:inventory.equippedTool;
     const pose=playerArmPose(p,time,tool?.type,fishing);
     const sprite=this.sprite(`adventurer:${back}:${side}:${step}:${armor}:${style.id||'player'}:${style.hairStyle||''}`,()=>{
-      const hair=style.hair||'#634b39';
+      const hair=style.hair||'#634b39',ap=equipmentPalette(armor);
       const image=canvas(44,66),c=image.getContext('2d'),skin=style.skin||'#e4ad80',skinLight=style.skinLight||'#f2c495',skinShade=style.skinShade||'#c68c65',shirt=style.shirt||MATERIAL_COLORS[armor]||({leaf:'#71ae65',wood:'#b78858',iron:'#9bbec9',stone:'#9caeb0',copper:'#d7966b',quartz:'#a8d9dc',amber:'#ddb865',obsidian:'#9a81b6',moonstone:'#cbb3e0'}[armor])||'#bd8056';
       // Small stepped contours and broad color planes keep the figure readable at game zoom.
       for(const [x,stride] of [[side?16:14,step],[25,-step]]){
@@ -158,12 +155,14 @@ export class AdventureArt extends ToyArt {
           const leg=stride*6,kneeX=x+leg*.5,footX=x+leg;
           for(let row=0;row<8;row++)rect(c,x+leg*.5*row/8,47+row,6,1,'#626566');
           for(let row=0;row<7;row++)rect(c,kneeX+leg*.5*row/7,54+row-Math.max(0,-stride)*2,5,1,'#7c7f76');
-          rect(c,footX-1,59-Math.max(0,-stride)*2,10,3,'#354951');continue;
+          rect(c,footX-1,59-Math.max(0,-stride)*2,10,3,'#354951');
+          if(armor){for(let row=0;row<7;row++){const lx=Math.round(kneeX+leg*.5*row/7),ly=54+row-Math.max(0,-stride)*2;rect(c,lx,ly,5,1,ap.shade);rect(c,lx+1,ly,2,1,ap.base);}rect(c,footX-1,59-Math.max(0,-stride)*2,8,2,ap.base);rect(c,kneeX,53,5,2,ap.edge);}continue;
         }
         rect(c,x,45,6,11,'#626566');rect(c,x+1,49,3,7,'#7c7f76');
         rect(c,x+1,55+stride,5,4,'#545d61');
         rect(c,x-1,58+stride,9,3,'#354951');rect(c,x-2,60+stride,10,1,'#2e4148');
         rect(c,x,58+stride,5,1,'#80918b');
+        if(armor){rect(c,x,52+stride,6,7,ap.shade);rect(c,x+1,53+stride,3,6,ap.base);rect(c,x,52+stride,5,1,ap.edge);rect(c,x-1,59+stride,8,2,ap.base);}
       }
       rect(c,18,23,9,6,skinShade);rect(c,19,24,6,4,skin);
       const bodyX=side?14:13,bodyW=side?17:18;
@@ -201,6 +200,7 @@ export class AdventureArt extends ToyArt {
       }
       if(style.patched){rect(c,bodyX+3,34,5,6,'#b1a180');rect(c,bodyX+3,34,5,1,'#4d5046');rect(c,bodyX+bodyW-5,41,3,5,skinShade);rect(c,bodyX+2,43,2,3,'#42483e');}
       rect(c,bodyX+1,46,bodyW-2,3,'#795c47');rect(c,bodyX+1,46,bodyW-2,1,'#a48156');rect(c,side?25:22,46,3,3,'#e0bd76');
+      if(armor){for(const tx of [bodyX+1,bodyX+bodyW-6]){rect(c,tx,49,5,4,ap.shade);rect(c,tx,49,4,2,ap.base);rect(c,tx,49,4,1,ap.edge);}rect(c,bodyX+4,28,bodyW-8,2,ap.shade);}
       // Cheeks, ears and a tapered jaw soften the old rectangular head.
       rect(c,15,9,15,3,skin);rect(c,13,12,19,9,skin);rect(c,14,21,17,3,skin);rect(c,17,24,11,2,skinShade);
       rect(c,11,16,3,4,skinShade);rect(c,12,16,2,3,skin);rect(c,31,16,3,4,skinShade);
@@ -214,22 +214,23 @@ export class AdventureArt extends ToyArt {
       }
       if(style.wideJaw){rect(c,13,21,3,3,skin);rect(c,29,21,3,3,skinShade);}
       if(!back&&style.beard){rect(c,16,22,14,4,hair);rect(c,19,26,8,2,hair);rect(c,19,23,7,1,skinShade);}
+      if(armor){rect(c,13,10,19,3,ap.shade);rect(c,14,10,17,2,ap.base);rect(c,15,10,15,1,ap.edge);rect(c,12,13,3,8,ap.shade);rect(c,31,13,2,8,ap.base);if(back){rect(c,14,12,17,10,ap.shade);rect(c,15,12,14,8,ap.base);rect(c,16,12,2,7,ap.edge);}else{rect(c,21,10,3,3,ap.edge);}}
       if(!back&&style.freckles){rect(c,15,21,2,1,skinShade);rect(c,28,21,2,1,skinShade);}
       return {image,ax:22,ay:61};
     });
     if(!p.swimBody&&!p.airborne)this.shadow(ctx,p.x,p.y,23);
     if(back&&tool)this.drawHeldTool(ctx,p,tool,time,fishing,pose);
-    if(!p.swimBody)this.drawPlayerArms(ctx,p,pose,true);
+    if(!p.swimBody)this.drawPlayerArms(ctx,p,pose,true,armor);
     this.draw(ctx,sprite,p.x,p.y-(p.jumpHeight||0),1.65,1,pose.flip);
-    if(!p.swimBody)this.drawPlayerArms(ctx,p,pose,false);
+    if(!p.swimBody)this.drawPlayerArms(ctx,p,pose,false,armor);
     if(tool&&!back)this.drawHeldTool(ctx,p,tool,time,fishing,pose);
   }
-  drawPlayerArms(ctx,p,pose,behind){
+  drawPlayerArms(ctx,p,pose,behind,armor){
     const arms=pose.arms.filter(arm=>(pose.back||arm.far)===behind);
     if(!arms.length)return;
     const key=arms.flatMap(arm=>[arm.shoulder.x,arm.elbow.x,arm.elbow.y,arm.hand.x,arm.hand.y,arm.far?1:0].map(Math.round)).join(':');
-    const sprite=this.sprite(`layered-arms:${key}:${p.appearance?.id||'player'}`,()=>{
-      const image=canvas(52,66),c=image.getContext('2d');for(const arm of arms)this.drawArm(c,{...arm,appearance:p.appearance});return {image,ax:22,ay:61};
+    const sprite=this.sprite(`layered-arms:${armor}:${key}:${p.appearance?.id||'player'}`,()=>{
+      const image=canvas(52,66),c=image.getContext('2d');for(const arm of arms)this.drawArm(c,{...arm,appearance:p.appearance,armor});return {image,ax:22,ay:61};
     });this.draw(ctx,sprite,p.x,p.y-(p.jumpHeight||0),1.65,1,pose.flip);
   }
   drawSwimmer(ctx,p,inventory,time){
@@ -248,14 +249,14 @@ export class AdventureArt extends ToyArt {
     ctx.save();ctx.beginPath();ctx.rect(p.x-90,p.y-200,180,p.underwater?266:194);ctx.clip();
     this.player(ctx,{...p,y:bodyY,swimming:false,swimBody:true,moving:false,jumpHeight:0,swingUntil:0},{...inventory,equippedTool:null},time);
     ctx.restore();
-    const arms=this.sprite(`swim-arms:${phase}:${side}:${back}`,()=>{
+    const arms=this.sprite(`swim-arms:${inventory.equippedGear?.tier}:${phase}:${side}:${back}`,()=>{
       const image=canvas(52,66),c=image.getContext('2d');
       for(let i=0;i<2;i++){
         const stroke=(phase+i*4)%8,reach=[-1,-3,-5,-3,0,2,3,1][stroke];
         const x=(side?[15,29]:[11.5,32.5])[i],sign=i?1:-1;
         const elbow={x:x+sign*(side?2:4),y:35+reach*.4};
         const hand={x:elbow.x+sign*(side?3:4),y:39+reach};
-        this.drawArm(c,{shoulder:{x,y:31},elbow,hand,far:side&&i===0});
+        this.drawArm(c,{shoulder:{x,y:31},elbow,hand,far:side&&i===0,appearance:p.appearance,armor:inventory.equippedGear?.tier});
       }
       return {image,ax:22,ay:61};
     });
@@ -281,7 +282,7 @@ export class AdventureArt extends ToyArt {
       rect(ctx,-2,-1,4,3,'#e4ad80');rect(ctx,-1,-1,2,1,'#f2c495');
       ctx.restore();
   }
-  drawArm(ctx,{shoulder,elbow,hand,far=false,appearance}){
+  drawArm(ctx,{shoulder,elbow,hand,far=false,appearance,armor}){
     const skin=appearance?.skin||(far?'#ce986f':'#e4ad80'),light=appearance?.skinLight||(far?'#e0ae80':'#f2c495');
     for(const [segment,[a,b]] of [[shoulder,elbow],[elbow,hand]].entries()){
       const rows=Math.max(1,Math.ceil(Math.abs(b.y-a.y)));
@@ -293,6 +294,7 @@ export class AdventureArt extends ToyArt {
     }
     // A small elbow shadow and forearm highlight distinguish the two segments.
     rect(ctx,elbow.x,elbow.y,2,2,far?'#b37d59':'#c68c65');
+    if(armor){const a=equipmentPalette(armor);for(const [start,end,from,to] of [[shoulder,elbow,0,.4],[elbow,hand,.3,.85]]){for(let i=0;i<=8;i++){const t=from+(to-from)*i/8,x=Math.round(start.x+(end.x-start.x)*t),y=Math.round(start.y+(end.y-start.y)*t);rect(ctx,x-3,y,far?5:7,2,a.shade);rect(ctx,x-2,y,far?3:5,1,a.base);rect(ctx,x-2,y,1,1,a.edge);}}}
     rect(ctx,hand.x-2,hand.y-1,4,3,skin);rect(ctx,hand.x-1,hand.y-1,2,1,light);
   }
   fishingRodTip(p,fishing,time=0){return fishingRodTipWorld(p,time,fishing);}

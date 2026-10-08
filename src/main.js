@@ -1,3 +1,4 @@
+import {grain} from './pixel-art.js';
 import {StoreUI} from './store-ui.js';
 import {STORE_LAYER,LOTTERY_SPOT,DARREN} from './underground-store-data.js';
 import {resourceImage} from './resource-art.js';
@@ -81,6 +82,7 @@ const player={x:initial.x,y:initial.y,facing:Math.PI*1.5,moving:false,jumpHeight
 player.layer=startLayer;if(startLayer==='surface'&&!startPortal&&!startLake)populateSpawnSupplies(spawnables,player);
 const diving=new DivingSession(),buffs=new StatusEffects(),quests=new QuestBook(),npcs=new NpcRegistry(),frontierNodes=new FrontierNodes(zones);
 populateFrontierCreatures(creatures);
+const musicBosses=creatures.creatures.filter(c=>c.kind==='steezus');
 const lan=new LanClient();let lastStructureSync=0,lastSail=0;let remotePlayers=[],networkShots=[],lifeRevision=0;
 function receiveStructure(data){
  let s=structures.items.get(data.id);const before=s?{x:s.x,y:s.y}:null;
@@ -130,6 +132,7 @@ let lastRespawn=0,targetNode=null,targetDrop=null,toastTimer=0;
 let nextSwingAt=0;
 let selectedInventoryItem=null;
 let pointerInventoryDrag=null;
+let lastDestinationWarm=0;
 let inventoryDropClickUntil=0;
 const keys=new Set();
 const mouse={x:renderer.width/2,y:renderer.height/2};
@@ -147,7 +150,8 @@ function saveTutorialDismissal(){try{localStorage.setItem(TUTORIAL_DISMISSED,'1'
 function showQuickStart(){let dismissed=false;try{dismissed=localStorage.getItem(TUTORIAL_DISMISSED)==='1';}catch{}if(!dismissed){setModal('tutorialModal',true);$('tutorialClose').focus({preventScroll:true});}}
 window.addEventListener('storage',event=>{if(event.key===TUTORIAL_DISMISSED&&event.newValue==='1')$('tutorialModal').classList.add('hidden');});
 function setModal(id,open){if(open)gameAudio.talk(id==='questModal'?frontierUI.lockedNpc:(id==='townModal'||id==='casinoModal')?{id}:null);else if(['questModal','townModal','casinoModal'].includes(id))gameAudio.talk(null);if((id==='tutorialModal'&&!open)||(open&&id!=='tutorialModal'&&!$('tutorialModal').classList.contains('hidden')))saveTutorialDismissal();if(open)document.querySelectorAll('.modal').forEach(m=>m.classList.add('hidden'));$(id).classList.toggle('hidden',!open);if(id==='mapModal'&&open){mapView.reset();drawFullMap();}if(id==='craftModal'&&open){setCraftTab('craft');renderCrafting();}if(id==='inventoryModal'&&open)renderInventory();}
-function modalOpen(){return !!document.querySelector('.modal:not(.hidden)');}
+const modalElements=document.getElementsByClassName('modal');
+function modalOpen(){for(let i=0;i<modalElements.length;i++)if(!modalElements[i].classList.contains('hidden'))return true;return !!document.getElementById('inventoryItemInfo')?.open;}
 function setZoneOverlay(open){showZones=open;$('zonePanel').classList.toggle('hidden',!open);$('zonesButton').classList.toggle('active',open);if(!open){dragVertex=-1;selectedZone=null;}refreshZonePanel();renderer.drawOverview($('minimap'),layer,player,zones,showZones);drawFullMap();}
 function showToast(message,duration=2800){$('toast').textContent=message;$('toast').classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.add('hidden'),duration);}
 const hudIds=['locationCard','healthCard','minimapCard','pouchCard','hotbar','toolbar','expeditionCard','questsButton'];
@@ -156,6 +160,7 @@ try{hudVisible=JSON.parse(localStorage.getItem('embervale-hud')||'{}')||{};}catc
 function setHud(id,visible){hudVisible[id]=visible;$(id).classList.toggle('hidden',!visible);const input=document.querySelector(`[data-hud="${id}"]`);if(input)input.checked=visible;localStorage.setItem('embervale-hud',JSON.stringify(hudVisible));}
 for(const id of hudIds)setHud(id,hudVisible[id]!==false);
 function eatFood(resource='cookedMeat'){
+  if(!['cookedMeat','cookedFish','driedMarijuana',...CROPS.filter(c=>c.heal).map(c=>c.id)].includes(resource)){showToast('This is a material, not food. See its inventory Info for uses.');return;}
   if(resource==='driedMarijuana'){if(!buffs.use(inventory,performance.now())){showToast('Dry fresh marijuana in a drying shack first');return;}currentEffects();renderInventory();renderHotbar();updateHud();frontierUI.update(performance.now());showToast('+50% health and XP for 60 seconds');return;}
   if(vitals.health>=vitals.maxHealth){showToast('Health is already full');return;}
   if(!inventory.consume(resource,1)){showToast('Cook food over a fueled campfire first');return;}
@@ -208,7 +213,7 @@ function renderHotbar(){
   hotbar.slots.forEach((slot,index)=>{
     const button=document.createElement('button');button.className=`hotbar-slot ${index===hotbar.selected?'selected':''}`;button.type='button';
     const number=document.createElement('span');number.className='hotbar-number';number.textContent=String(index+1);button.append(number);
-    if(slot){const recipe=equipmentRecipe(RECIPES.find(r=>r.id===slot.id),inventory.owned.get(slot.id));if(recipe)button.append(itemImage(recipe));else{const icon=document.createElement('span');icon.className='food-icon';icon.textContent=slot.id==='driedMarijuana'?'🌿':slot.id==='cookedFish'?'🐟':CROPS.some(c=>c.id===slot.id)?'🌱':'🍖';button.append(icon);}const label=document.createElement('small');label.textContent=recipe?.name||resourceName(slot.id);button.append(label);if(slot.kind==='structure'||slot.kind==='resource'){const count=document.createElement('b');count.textContent=slot.kind==='structure'?inventory.structures[slot.id]:inventory.resources[slot.id];button.append(count);}}
+    if(slot){const recipe=equipmentRecipe(RECIPES.find(r=>r.id===slot.id),inventory.owned.get(slot.id));button.append(slot.kind==='resource'||!recipe?resourceImage(slot.id,resourceName(slot.id)):itemImage(recipe));const label=document.createElement('small');label.textContent=recipe?.name||resourceName(slot.id);button.append(label);if(slot.kind==='structure'||slot.kind==='resource'){const count=document.createElement('b');count.textContent=slot.amount??(slot.kind==='structure'?inventory.structures[slot.id]:inventory.resources[slot.id]);button.append(count);}}
     activate(button,()=>{if(index===hotbar.selected&&['cookedMeat','cookedFish','driedMarijuana',...CROPS.filter(c=>c.heal).map(c=>c.id)].includes(slot?.id))eatFood(slot.id);else selectHotbar(index);});host.append(button);
   });
   renderInventoryHotbar();
@@ -224,7 +229,7 @@ function selectHotbar(index){
 function inventoryDragSource(element,slot){
   element.draggable=true;
   element.querySelectorAll('img').forEach(img=>img.draggable=false);
-  element.addEventListener('pointerdown',event=>{const image=event.target.closest('img');if(image)image.draggable=false;if(event.target.closest('button'))return;if(event.button===0)pointerInventoryDrag={slot,x:event.clientX,y:event.clientY,handled:false};});
+  element.addEventListener('pointerdown',event=>{const image=event.target.closest('img');if(image)image.draggable=false;if(event.target.closest('button')!==element&&event.target.closest('button'))return;if(event.button===0)pointerInventoryDrag={slot,x:event.clientX,y:event.clientY,handled:false};});
   element.addEventListener('dragstart',event=>{
     if(!pointerInventoryDrag)pointerInventoryDrag={slot,x:event.clientX,y:event.clientY,handled:false};
     event.dataTransfer.effectAllowed='move';
@@ -268,7 +273,7 @@ function renderInventoryHotbar(){
     cell.dataset.slot=String(index);
     cell.tabIndex=0;cell.setAttribute('role','button');cell.setAttribute('aria-label',`Hotbar slot ${index+1}${slot?`: ${slot.kind==='resource'?resourceName(slot.id):itemName(slot.id)}`:': empty'}`);
     number.className='hotbar-number';number.textContent=String(index+1);cell.append(number);
-    if(slot){const recipe=equipmentRecipe(RECIPES.find(r=>r.id===slot.id),inventory.owned.get(slot.id));if(recipe)cell.append(itemImage(recipe));else {const icon=document.createElement('span');icon.className='food-icon';icon.textContent=slot.id==='driedMarijuana'?'🌿':slot.id==='cookedFish'?'🐟':CROPS.some(c=>c.id===slot.id)?'🌱':'🍖';cell.append(icon);}label.textContent=recipe?.name||resourceName(slot.id);cell.append(label);
+    if(slot){const recipe=equipmentRecipe(RECIPES.find(r=>r.id===slot.id),inventory.owned.get(slot.id));cell.append(slot.kind==='resource'||!recipe?resourceImage(slot.id,resourceName(slot.id)):itemImage(recipe));label.textContent=recipe?.name||resourceName(slot.id);cell.append(label);
       inventoryDragSource(cell,{kind:slot.kind,id:slot.id,fromIndex:index});
       const clear=document.createElement('button');clear.type='button';clear.className='inventory-slot-clear';clear.textContent='×';clear.setAttribute('aria-label',`Clear hotbar slot ${index+1}`);
       clear.addEventListener('click',event=>{event.stopPropagation();hotbar.clear(index);selectHotbar(hotbar.selected);});cell.append(clear);
@@ -343,7 +348,7 @@ function transition(p=nearestPortal(player.x,player.y,layer),instant=false){
   layer=portalDestination(p,layer);
   projectiles.clear();
   player.layer=layer;player.underwater=false;player.grappleTarget=null;player.vehicle=null;player.flightHeight=0;player.raftId=null;player.swimming=false;player.bridgeId=null;player.waterJump=false;player.jumpActive=false;player.jumpHeight=0;const dest=p[layer];player.x=dest.x;player.y=dest.y;camera.x=player.x+camera.lookX;camera.y=player.y+camera.lookY;
-  lastTransition=performance.now();selectedZone=null;refreshZonePanel();drawFullMap();renderer.drawOverview($('minimap'),layer,player,zones,showZones);
+  warmNextDestination();lastTransition=performance.now();selectedZone=null;refreshZonePanel();drawFullMap();renderer.drawOverview($('minimap'),layer,player,zones,showZones);
   worldBridge.publishInteraction({kind:buildingForLayer(layer)?'enter-building':buildingForLayer(from)?'exit-building':from==='surface'?'enter-cave':layer==='surface'?'exit-cave':Object.keys(LAYERS).indexOf(layer)>Object.keys(LAYERS).indexOf(from)?'descend-cave':'ascend-cave',targetId:p.id,x:player.x,y:player.y,layer});
 }
 function handleKey(event,down){
@@ -422,6 +427,22 @@ document.querySelectorAll('[data-close]').forEach(b=>activate(b,()=>setModal(b.d
 document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)setModal(m.id,false);}));
 
 function itemName(id){const item=inventory.owned.get(id);return item?.type==='bow'?bowForm(item).name:RECIPES.find(r=>r.id===id)?.name||'None';}
+function inventoryItemActions(card,slot,detail=''){
+  const actions=document.createElement('div');actions.className='inventory-item-actions';
+  const drag=document.createElement('button'),info=document.createElement('button');
+  drag.type=info.type='button';drag.textContent='Put';info.textContent='Info';
+  drag.className='inventory-put-button';drag.title='Put into the next empty hotbar slot';
+  const amountLabel=document.createElement('label'),amount=document.createElement('input');amountLabel.className='inventory-amount';amountLabel.textContent='Amount';amount.type='number';amount.min='1';amount.max=String(slot.kind==='resource'?inventory.resources[slot.id]:slot.kind==='structure'?inventory.structures[slot.id]:1);amount.value=amount.max;amount.step='1';amount.setAttribute('aria-label',`Amount of ${resourceName(slot.id)}`);amountLabel.append(amount);
+  const updateAmount=()=>{amount.value=String(Math.max(1,Math.min(Number(amount.max),Math.floor(Number(amount.value)||1))));slot.amount=Number(amount.value);};amount.addEventListener('change',updateAmount);updateAmount();
+  activate(drag,event=>{event.stopPropagation();updateAmount();hotbar.removeDepleted(inventory);const index=hotbar.slots.findIndex(cell=>!cell);if(index<0){showToast('Your hotbar is full. Clear a slot first.');return;}putInventoryItem(index,{...slot});});
+  activate(info,event=>{event.stopPropagation();
+    let dialog=$('inventoryItemInfo');if(!dialog){dialog=document.createElement('dialog');dialog.id='inventoryItemInfo';document.body.append(dialog);dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});}
+    const entry=indexEntries(inventory).find(e=>e.id===slot.id),title=document.createElement('h3'),body=document.createElement('p'),close=document.createElement('button');
+    title.textContent=entry?.name||resourceName(slot.id);const edible=['cookedMeat','cookedFish','driedMarijuana',...CROPS.filter(c=>c.heal).map(c=>c.id)].includes(slot.id);
+    const instructions=edible?'To consume: set Amount and click Put to fill the next empty hotbar slot. Close your inventory, select that slot, then click in the world to eat or use it.':slot.kind==='structure'?'Click Put to fill the next empty hotbar slot, select it, then click a valid location to build.':slot.kind==='equipment'?'Click Put to fill the next empty hotbar slot and select it to equip.': 'Crafting and quest materials are used automatically from your bag when needed.';
+    body.textContent=[entry?.detail,detail,instructions].filter(Boolean).join(' ');close.textContent='Close';close.type='button';close.onclick=()=>dialog.close();dialog.replaceChildren(title,body,close);dialog.showModal();
+  });actions.append(drag,info);card.append(amountLabel,actions);
+}
 function renderInventory(){
   const rod=inventory.equippedTool?.type==='rod'?inventory.equippedTool:[...inventory.owned.values()].find(t=>t.type==='rod');$('fishingBag').classList.toggle('hidden',!rod&&!BAITS.some(b=>inventory.resources[b.id]>0));$('fishingBait').replaceChildren(...BAITS.map(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=`${b.name} · ${inventory.resources[b.id]} carried · ${b.luck}× luck / ${b.strength}× pull`;o.disabled=inventory.resources[b.id]<1;return o;}));$('fishingBait').value=inventory.fishingBait||'worms';if(rod){const st=rodStats(rod);$('rodBagStats').textContent=`Rod +${st.level}/5 · ${st.range} cast range · ${st.luck.toFixed(2)}× luck · ${st.strength.toFixed(2)}× strength. Upgrade at a blacksmith.`;}else $('rodBagStats').textContent='Equip a rod, click water, then click repeatedly after the bite. One bait per cast.';
 
@@ -438,19 +459,11 @@ function renderInventory(){
   for(const resource of visibleResources(inventory)){
     const edible=['cookedMeat','cookedFish','driedMarijuana',...CROPS.filter(c=>c.heal).map(c=>c.id)].includes(resource);
     const chip=document.createElement('div');chip.className='inventory-resource-tile';const label=document.createElement('strong'),quantity=document.createElement('span');label.textContent=resourceName(resource);quantity.textContent=`×${inventory.resources[resource]}${oreLevel(resource)?` · Ore ${oreLevel(resource)}`:''}`;chip.append(resourceImage(resource,resourceName(resource)),label,quantity);
-    if(edible){
-      chip.classList.add('inventory-drag-item');
-      const slot={kind:'resource',id:resource};inventoryDragSource(chip,slot);
-      let dragged=false;chip.tabIndex=0;chip.setAttribute('role','button');chip.setAttribute('aria-label',`Use ${resourceName(resource)}`);chip.title=`Click to use ${resourceName(resource)} · drag to hotbar`;chip.addEventListener('pointerdown',()=>dragged=false);chip.addEventListener('dragstart',()=>dragged=true);activate(chip,()=>{if(!dragged)eatFood(resource);});chip.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();eatFood(resource);}});
-    }
+    inventoryItemActions(chip,{kind:'resource',id:resource});
     $('bagResources').append(chip);
   }
   $('bagResourcesEmpty').classList.toggle('hidden',$('bagResources').childElementCount>0);
-  $('eatMeatButton').classList.toggle('hidden',inventory.resources.cookedMeat<1);
-  $('eatMeatButton').disabled=inventory.resources.cookedMeat<1||vitals.health>=vitals.maxHealth;
-  $('useMarijuanaButton').classList.toggle('hidden',inventory.resources.driedMarijuana<1);
-  $('eatFishButton').classList.toggle('hidden',inventory.resources.cookedFish<1);
-  $('eatFishButton').disabled=inventory.resources.cookedFish<1||vitals.health>=vitals.maxHealth;
+  for(const id of ['eatMeatButton','eatFishButton','useMarijuanaButton'])$(id).classList.add('hidden');
   const weapons=$('ownedWeapons'),armor=$('ownedArmor');weapons.replaceChildren();armor.replaceChildren();
   let weaponCount=0,armorCount=0;
   for(const [id,item] of inventory.owned){
@@ -463,18 +476,18 @@ function renderInventory(){
       activate(button,()=>{if(equipped)inventory.unequip(id);else inventory.equip(id);currentEffects();renderInventory();renderCrafting();updateHud();});
     }else{
       button.textContent='Select';
-      const slot={kind:'equipment',id};inventoryDragSource(card,slot);
+      const slot={kind:'equipment',id};
       activate(button,()=>chooseInventoryItem(slot));
       if(selectedInventoryItem?.kind===slot.kind&&selectedInventoryItem.id===id)card.classList.add('inventory-picked');
     }
-    card.title=detail.textContent;info.append(title,detail);card.append(itemImage(recipe),info,button);
+    card.title=detail.textContent;info.append(title,detail);card.append(itemImage(recipe),info);if(recipe.category==='gear')card.append(button);inventoryItemActions(card,{kind:'equipment',id},detail.textContent);
     if(recipe.category==='gear'){armor.append(card);armorCount++;}else{weapons.append(card);weaponCount++;}
   }
   $('weaponsEmpty').classList.toggle('hidden',weaponCount>0);$('armorEmpty').classList.toggle('hidden',armorCount>0);
   $('perkSummary').textContent=effect.perk?`${effect.perk.biome} ${effect.perk.stat}: ${perkPercent(effect.stats[effect.perk.stat])}. Matching tools crafted: ${effect.crafted}/${effect.total}. ${effect.boosted?'Full-set boost active.':effect.fullSet?'Equip one of the matching tools for the full-set boost.':'Craft every listed matching tool to unlock a stronger perk.'}`:'Equip armor to activate its biome perk.';
   const structureHost=$('ownedStructures');structureHost.replaceChildren();
   const kits=Object.entries(inventory.structures).filter(([,n])=>n>0);$('structuresEmpty').classList.toggle('hidden',kits.length>0);
-  for(const [id,count] of kits){const recipe=RECIPES.find(r=>r.id===id),card=document.createElement('div'),label=document.createElement('span'),button=document.createElement('button'),slot={kind:'structure',id};card.className='recipe-card';label.textContent=`${recipe.name} kits: ${count}`;button.textContent='Select';inventoryDragSource(card,slot);activate(button,()=>chooseInventoryItem(slot));card.append(itemImage(recipe),label,button);structureHost.append(card);}
+  for(const [id,count] of kits){const recipe=RECIPES.find(r=>r.id===id),card=document.createElement('div'),label=document.createElement('span'),button=document.createElement('button'),slot={kind:'structure',id};card.className='recipe-card';label.textContent=`${recipe.name} kits: ${count}`;button.textContent='Select';card.append(itemImage(recipe),label);inventoryItemActions(card,slot,recipe.detail);structureHost.append(card);}
   renderInventoryHotbar();
 }
 let craftCategory='tools',craftPage=0;
@@ -559,7 +572,7 @@ $('zoneBiome').addEventListener('change',e=>{if(devMode&&selectedZone){selectedZ
 activate($('zoneReset'),()=>{if(!devMode)return;zones.reset();populateWorld(zones,spawnables);frontierNodes.reconcileZones();selectedZone=null;refreshZonePanel();});
 activate($('zoneExport'),()=>{
   const blob=new Blob([zones.export()],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='embervale-spawn-zones.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  a.href=url;a.download='cavemanworld-spawn-zones.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 
 function mouseWorld(event){const r=canvas.getBoundingClientRect(),p=renderer.screenToWorld(event.clientX-r.left,event.clientY-r.top,camera,zoom);return layer==='surface'?unprojectMountainPoint(p):p;}
@@ -585,7 +598,7 @@ canvas.addEventListener('pointerdown',event=>{
     const clickedMob=creatures.visible({left:p.x-110,right:p.x+110,top:p.y-80,bottom:p.y+280},layer).find(c=>Math.abs(c.x-p.x)<c.radius+30&&p.y<c.y+30&&p.y>c.y-(c.boss?240:110));
     if(clickedMob){attack(Math.atan2(clickedMob.y-player.y,clickedMob.x-player.x));return;}
     if(special){collectFrontier(special);return;}
-    const node=spawnables.at(p.x,p.y,layer);
+    const node=hoveredNode||spawnables.at(p.x,p.y,layer);
     const meleeWeapon=['sword','spear','warhammer','club','rock'].includes(inventory.equippedTool?.type);
     if(meleeWeapon&&attackTarget(creatures.nearby(player.x,player.y,layer,(inventory.equippedTool?.range||120)+50),{...player,facing:aimFacing},inventory.equippedTool?.range||120)){attack(aimFacing);return;}
     if(node){gather(node);return;}
@@ -645,7 +658,7 @@ function update(dt,now){
     }
     player.swimming=player.underwater||(!raft&&!player.vehicle?.glider&&!player.bridgeId&&physicalWaterAt(player.x,player.y,layer)&&!player.waterJump);
   }else player.moving=false;
-  steezusMusic.update(dt,player,creatures.creatures,now);
+  steezusMusic.update(dt,player,musicBosses,now);
   gameAudio.update(dt,now,player,creatures.creatures,{sprinting:keys.has('shift'),paused:modalOpen()});
   structures.update(dt);npcs.update(dt,now,player);frontierNodes.update(now);
   if(now-lastHud>170){frontierUI.update(now);storeUI.update();}
@@ -685,6 +698,7 @@ function update(dt,now){
     worldBridge.publishPosition({x:Math.round(player.x),y:Math.round(player.y),layer,facing:player.facing});lastPosition=now;lastPublishedFacing=player.facing;
   }
   if(now-lastHud>170){updateHud();lastHud=now;}
+  if(now-lastDestinationWarm>1000){warmNextDestination();lastDestinationWarm=now;}
   if(now-lastMap>700){renderer.drawOverview($('minimap'),layer,player,zones,showZones);drawFullMap();lastMap=now;}
 }
 function updateHud(){
@@ -722,18 +736,45 @@ function updateHud(){
   else if(nearNpc)$('portalText').textContent='Talk to '+nearNpc.name+' · quests';
   else if(nearSpecial)$('portalText').textContent=nearSpecial.label+' · collect';
   else if(nearFire)$('portalText').textContent=nearFire.tableTier?`Use ${tableForTier(nearFire.tableTier).name} · crafting`:nearFire.kind==='reed-raft'?(nearFire.driver===lan.id?'Stop steering · fish from deck':'Board driver seat · steer with WASD'):nearFire.kind==='wood-gate'?'Toggle gate':nearFire.kind?'Use '+RECIPES.find(r=>r.id===nearFire.kind).name:'Open campfire · cook meat or fish';
-  else if(targetNode){const n=targetNode;$('portalText').textContent=n.kind==='bush'?`Forage ${n.crop?.name||'Bush'} · seeds + food + sticks`:n.kind==='ground'?`Pick up ${n.label}`:`${n.kind==='tree'?'Chop':'Mine'} ${n.label} · ${n.quantity}/${n.maxQuantity} · ${n.kind==='tree'?'axe':`${n.rarity?`${n.rarity} · `:''}${['obsidian','moonstone'].includes(n.resource)?'iron pickaxe':'pickaxe'}`} needed`;}
+  else if(targetNode){$('portalPrompt').classList.add('hidden');const n=targetNode;$('portalText').textContent=n.kind==='bush'?`Forage ${n.crop?.name||'Bush'} · seeds + food + sticks`:n.kind==='ground'?`Pick up ${n.label}`:`${n.kind==='tree'?'Chop':'Mine'} ${n.label} · ${n.quantity}/${n.maxQuantity} · ${n.kind==='tree'?'axe':`${n.rarity?`${n.rarity} · `:''}${['obsidian','moonstone'].includes(n.resource)?'iron pickaxe':'pickaxe'}`} needed`;}
 }
 function drawFullMap(){if($('mapModal').classList.contains('hidden'))return;$('atlasTitle').textContent=LAYER_NAMES[layer];const viewport=$('atlasViewport'),map=$('fullMap'),width=Math.max(1,Math.floor(viewport.clientWidth)),height=Math.max(1,Math.floor(viewport.clientHeight));if(map.width!==width||map.height!==height){mapView.x*=width/map.width;mapView.y*=height/map.height;map.width=width;map.height=height;}mapView.constrain($('fullMap'),mapWorld());renderer.drawOverview($('fullMap'),layer,player,zones,showZones,mapView);$('mapZoom').textContent=mapView.zoom.toFixed(1)+'×';}
+const hoverMasks=new WeakMap();
+let hoveredNode=null,pointerOnWorld=false,hoverMemo='',hoverText='',hoverWidth=0,hoverHeight=0;
+const hoverLabel=document.createElement('div');hoverLabel.id='resourceHoverLabel';hoverLabel.hidden=true;document.body.append(hoverLabel);
+canvas.addEventListener('pointerenter',()=>pointerOnWorld=true);
+canvas.addEventListener('pointerleave',()=>{pointerOnWorld=false;hoveredNode=null;hoverLabel.hidden=true;});
+function updateResourceHover(){
+  if(!pointerOnWorld||modalOpen()||showZones){hoveredNode=null;hoverMemo='';hoverLabel.hidden=true;return;}
+  const projected=renderer.screenToWorld(mouse.x,mouse.y,camera,zoom),world=layer==='surface'?unprojectMountainPoint(projected):projected;
+  const memo=`${layer}:${Math.round(projected.x*10)}:${Math.round(projected.y*10)}:${mouse.x}:${mouse.y}:${zoom.toFixed(4)}:${inventory.equippedTool?.id}:${inventory.equippedTool?.tier}`;
+  if(memo===hoverMemo&&(!hoveredNode||hoveredNode.active))return;hoverMemo=memo;hoveredNode=null;
+  const nodes=spawnables.query({left:world.x-230,right:world.x+230,top:world.y-290,bottom:world.y+390},layer,'nodes');
+  for(const n of nodes){if(!n.active)continue;const y=n.y-(layer==='surface'?elevationOffset(n.x,n.y):0),scale=n.scale||1,dx=projected.x-n.x,dy=projected.y-y;
+    const width=(n.kind==='tree'?65:n.kind==='ground'?31:55)*scale,height=(n.kind==='tree'?210:n.kind==='ground'?65:95)*scale;
+    if(Math.abs(dx)>=width||dy<=-height||dy>=18*scale)continue;
+    const variant=n.variant??Math.floor(grain(n.x,n.y)*12),resource=n.kind==='bush'?(n.crop?.id||n.resource):n.resource;
+    const sprite=renderer.art.sprites.get(`${n.kind}:${n.biome||'heartlands'}:${resource}:${variant}`);if(!sprite)continue;
+    const spriteScale=(n.kind==='tree'?1.65:1.8)*scale,px=Math.floor((dx/spriteScale+sprite.ax)*(sprite.resolution||1)),py=Math.floor((dy*.86/spriteScale+sprite.ay)*(sprite.resolution||1));
+    if(px<0||py<0||px>=sprite.image.width||py>=sprite.image.height)continue;
+    let mask=hoverMasks.get(sprite.image);if(!mask){mask=sprite.image.getContext('2d').getImageData(0,0,sprite.image.width,sprite.image.height).data;hoverMasks.set(sprite.image,mask);}
+    if(mask[(py*sprite.image.width+px)*4+3]&&(!hoveredNode||n.y>hoveredNode.y))hoveredNode=n;
+  }
+  hoverLabel.hidden=!hoveredNode;if(!hoveredNode)return;
+  const status=hoveredNode.gatherRequirement(inventory.equippedTool);hoverLabel.classList.toggle('unavailable',!status.ok);
+  const text=`${hoveredNode.crop?.name||hoveredNode.label} · ${status.ok?'Gatherable':status.message}`;if(text!==hoverText){hoverText=text;hoverLabel.textContent=text;hoverWidth=hoverLabel.offsetWidth;hoverHeight=hoverLabel.offsetHeight;}
+  const r=canvas.getBoundingClientRect();hoverLabel.style.left=`${Math.min(window.innerWidth-hoverWidth-8,r.left+mouse.x+14)}px`;hoverLabel.style.top=`${Math.min(window.innerHeight-hoverHeight-8,r.top+mouse.y+16)}px`;
+}
 let frameWork=0;
 function frame(now){
   const workStart=performance.now();
   const dt=Math.max(0,Math.min(.05,(now-lastFrame)/1000));lastFrame=now;
-  update(dt,now);renderer.render({camera,zoom,player,layer,zones,showZones,selectedZone,editZones:devMode,spawnables,structures,creatures,drops,projectiles,fishing,targetNode,targetDrop,inventory,time:now,frontier:{npcs,nodes:frontierNodes,quests,remotePlayers,networkShots}});
+  update(dt,now);updateResourceHover();renderer.render({camera,zoom,player,layer,zones,showZones,selectedZone,editZones:devMode,spawnables,structures,creatures,drops,projectiles,fishing,targetNode,targetDrop,inventory,hoveredNode,time:now,frontier:{npcs,nodes:frontierNodes,quests,remotePlayers,networkShots}});
   frameWork+=performance.now()-workStart;fpsFrames++;
   if(now-fpsStart>=1000){$('perfStats').textContent=`${Math.round(fpsFrames*1000/(now-fpsStart))} FPS · ${(frameWork/fpsFrames).toFixed(1)} ms/frame · ${layer} · ${zoom.toFixed(2)}× zoom · terrain ${renderer.art.worker?'worker':'fallback'}`;fpsFrames=0;frameWork=0;fpsStart=now;}
   requestAnimationFrame(frame);
 }
+function warmNextDestination(){const p=betaDescent();if(!p)return;const next=portalDestination(p,layer),at=p[next];if(!buildingForLayer(next)){renderer.art.prewarm(renderer.viewBounds({x:at.x,y:at.y},zoom),next);renderer.art.requestCaveAtlas(next);}}
 function betaDescent(){const order=['surface','cave','deep','abyss','core','mantle','vault',STORE_LAYER],next=order[order.indexOf(layer)+1];return order.includes(layer)?[...PORTALS,...DESCENTS].filter(p=>p[layer]&&p[next]).sort((a,b)=>Math.hypot(a[layer].x-player.x,a[layer].y-player.y)-Math.hypot(b[layer].x-player.x,b[layer].y-player.y))[0]:null;}
 activate($('betaDescend'),()=>{const p=betaDescent();if(!p)return;transition(p,true);setModal('betaModal',false);updateHud();showToast(`Teleported to ${LAYER_NAMES[layer]}`);});
 function renderBeta(){const p=betaDescent();$('betaDescend').disabled=!p;$('betaDescend').textContent=p?`Descend · ${LAYER_NAMES[portalDestination(p,layer)]}`:'No deeper layer'; $('betaLevel').textContent=`Level ${inventory.progression.level} · ${inventory.progression.xp}/${inventory.progression.required} XP`; }
@@ -743,7 +784,7 @@ for(const [label,items] of [['Resources',RESOURCES.map(id=>({id,name:resourceNam
 activate($('betaGive'),()=>{grantBetaItem(inventory,$('betaItem').value,$('betaQuantity').value);$('betaFeedback').textContent=`Added ${$('betaItem').selectedOptions[0].textContent}`;refreshBeta();});
 activate($('betaSupplies'),()=>{for(const id of RESOURCES)inventory.add(id,50);$('betaFeedback').textContent='Added 50 of every resource';refreshBeta();});
 
-renderInventory();renderCrafting();renderHotbar();updateHud();renderer.drawOverview($('minimap'),layer,player,zones,showZones);requestAnimationFrame(frame);lan.connect();showQuickStart();
+renderInventory();renderCrafting();renderHotbar();updateHud();renderer.drawOverview($('minimap'),layer,player,zones,showZones);warmNextDestination();requestAnimationFrame(frame);lan.connect();showQuickStart();
 if(!startPortal&&layer==='surface')showToast('Click bushes and stones → C: craft an axe → 1–6: hotbar',6000);
 
 $('lanName')?.addEventListener('change',e=>{lan.name=e.target.value.trim().slice(0,24)||'Caveman';syncPosition();});

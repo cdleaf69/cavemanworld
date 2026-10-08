@@ -1,3 +1,4 @@
+import {refinedWeaponSvg} from './refined-equipment-art.js';
 import {armorSvg} from './equipment-design.js';
 import {frontierItemSvg} from './frontier-item-art.js';
 import { MATERIAL_COLORS } from './materials.js';
@@ -12,8 +13,10 @@ export function itemSvg(recipe,{background=true}={}){
   const [dark,light]=PALETTE[recipe.tier]||PALETTE.stone;
   const isGear=recipe.category==='gear';
   let shape='';
+  const refined=refinedWeaponSvg(recipe);
   const frontier=frontierItemSvg(recipe);
   if(frontier)shape=frontier;
+  else if(refined)shape=refined;
   else if(recipe.category==='structure'){
     shape=`<path d="M16 69 34 55 76 69M20 75 62 53 80 75" fill="none" stroke="#b99265" stroke-width="9" stroke-linecap="round"/><path d="M47 61Q23 40 43 20Q42 39 52 34Q65 15 68 42Q69 57 47 61Z" fill="#f4a657" stroke="#ffdb8d" stroke-width="3"/>`;
   }else if(isGear){

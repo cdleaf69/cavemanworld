@@ -15,8 +15,12 @@ for(const path of PATHS)for(let i=1;i<path.points.length;i++){
 function nearPath(x,y){
  return (pathCells.get(`${Math.floor(x/512)}:${Math.floor(y/512)}`)||[]).some(s=>distanceToSegment(x,y,...s.a,...s.b)<s.clearance+4*Math.sin(x*.007+y*.011));
 }
-function nearPortal(x,y,layer) { return [...PORTALS,...DESCENTS].some(p=>p[layer]&&Math.hypot(x-p[layer].x,y-p[layer].y)<210); }
-function nearTunnel(x,y,layer){const {tunnels}=caveGeometry(layer);return tunnels.some(t=>t.points.some((p,i)=>i>0&&distanceToSegment(x,y,...t.points[i-1],...p)<95));}
+const portalCells=new Map(),tunnelCells=new Map();
+function bucketSegment(cells,layer,s,pad){for(let y=Math.floor((Math.min(s.a[1],s.b[1])-pad)/512);y<=Math.floor((Math.max(s.a[1],s.b[1])+pad)/512);y++)for(let x=Math.floor((Math.min(s.a[0],s.b[0])-pad)/512);x<=Math.floor((Math.max(s.a[0],s.b[0])+pad)/512);x++){const key=`${layer}:${x}:${y}`;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(s);}}
+for(const p of [...PORTALS,...DESCENTS])for(const layer of Object.keys(p)){const at=p[layer];if(at&&typeof at==='object'&&Number.isFinite(at.x))bucketSegment(portalCells,layer,{a:[at.x,at.y],b:[at.x,at.y]},210);}
+for(const layer of ['cave','deep','abyss','core','mantle','vault'])for(const t of caveGeometry(layer).tunnels)for(let i=1;i<t.points.length;i++)bucketSegment(tunnelCells,layer,{a:t.points[i-1],b:t.points[i]},95);
+function nearPortal(x,y,layer){return (portalCells.get(`${layer}:${Math.floor(x/512)}:${Math.floor(y/512)}`)||[]).some(s=>(x-s.a[0])**2+(y-s.a[1])**2<210**2);}
+function nearTunnel(x,y,layer){return (tunnelCells.get(`${layer}:${Math.floor(x/512)}:${Math.floor(y/512)}`)||[]).some(s=>distanceToSegment(x,y,...s.a,...s.b)<95);}
 function valid(x,y,zone,radius) {
   if(zone.layer==='surface'&&mountainAt(x,y))return false;
   if(!zone.contains(x,y)||!canWalk(x,y,zone.layer,radius))return false;

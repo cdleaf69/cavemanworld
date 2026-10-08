@@ -20,8 +20,8 @@ export class StructureRegistry {
   add(item){this.items.set(item.id,item);return item;}
   remove(item){this.items.delete(item.id);}
   update(dt){for(const item of this.items.values())if(!item.remote)item.update(dt);}
-  visible(bounds,layer){return [...this.items.values()].filter(s=>s.layer===layer&&s.x>bounds.left-100&&s.x<bounds.right+100&&s.y>bounds.top-100&&s.y<bounds.bottom+100);}
-  at(x,y,layer){return [...this.items.values()].sort((a,b)=>(a.kind==='wood-floor'?2:a.kind==='wood-roof'?1:0)-(b.kind==='wood-floor'?2:b.kind==='wood-roof'?1:0)).find(s=>s.layer===layer&&(s.width?Math.abs(x-s.x)<s.width/2+8&&Math.abs(y-s.y)<s.height/2+60:Math.hypot(x-s.x,y-s.y)<s.radius+16))||null;}
+  visible(bounds,layer){const result=[];for(const s of this.items.values())if(s.layer===layer&&s.x>bounds.left-100&&s.x<bounds.right+100&&s.y>bounds.top-100&&s.y<bounds.bottom+100)result.push(s);return result;}
+  at(x,y,layer){let best=null,priority=Infinity;for(const s of this.items.values()){if(s.layer!==layer)continue;const rank=s.kind==='wood-floor'?2:s.kind==='wood-roof'?1:0;if(rank>=priority)continue;if(s.width?Math.abs(x-s.x)<s.width/2+8&&Math.abs(y-s.y)<s.height/2+60:Math.hypot(x-s.x,y-s.y)<s.radius+16){best=s;priority=rank;}}return best;}
   nearest(x,y,layer,range=135){let best=null,distance=range;for(const s of this.items.values()){if(s.layer!==layer)continue;const d=Math.hypot(x-s.x,y-s.y)-s.radius;if(d<distance){best=s;distance=d;}}return best;}
   blocks(x,y,layer,radius=24){for(const s of this.items.values())if(s.layer===layer&&s.solid!==false&&!(s.kind==='wood-gate'&&s.open)&& (s.width?Math.abs(x-s.x)<s.width/2+radius&&Math.abs(y-s.y)<s.height/2+radius:Math.hypot(x-s.x,y-s.y)<s.radius+radius))return true;return false;}
 }

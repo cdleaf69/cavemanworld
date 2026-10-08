@@ -77,10 +77,11 @@ export class Creature {
     return {ok:true,dead:true,loot:{...this.loot}};
   }
   update(dt,now,player,canMove=canWalk){
-    if(this.aquatic)canMove=(x,y,layer)=>layer==='ocean'?canWalk(x,y,'ocean',this.radius):waterAt(x,y,'surface');
     if(!this.alive){if(now>=this.respawnAt){this.alive=true;this.health=this.maxHealth;this.x=this.homeX;this.y=this.homeY;}return null;}
-    if(player.layer!==this.layer||Math.hypot(player.x-this.x,player.y-this.y)>Math.max(1100,this.aggroRange*1.4))return null;
-    const dx=player.x-this.x,dy=player.y-this.y,distance=Math.hypot(dx,dy);
+    if(player.layer!==this.layer)return null;
+    const dx=player.x-this.x,dy=player.y-this.y,distanceSquared=dx*dx+dy*dy,range=Math.max(1100,this.aggroRange*1.4);if(distanceSquared>range*range)return null;
+    const distance=Math.sqrt(distanceSquared);
+    if(this.aquatic)canMove=(x,y,layer)=>layer==='ocean'?canWalk(x,y,'ocean',this.radius):waterAt(x,y,'surface');
     const hostile=this.temperament==='hostile';
     const portalSafe=hostile&&entranceSafe(player.x,player.y,player.layer,135);
     const chasing=hostile&&!portalSafe&&(distance<this.aggroRange||now<this.alertUntil&&distance<this.aggroRange*1.4);
@@ -132,7 +133,19 @@ export class CreatureRegistry {
   add(creature){this.creatures.push(creature);}
   visible(bounds,layer){return this.creatures.filter(c=>c.alive&&c.layer===layer&&c.x>bounds.left-90&&c.x<bounds.right+90&&c.y>bounds.top-90&&c.y<bounds.bottom+90);}
   nearby(x,y,layer,range){return this.creatures.filter(c=>c.alive&&c.layer===layer&&Math.hypot(c.x-x,c.y-y)<range+c.radius);}
-  update(dt,now,player,canMove){this.creatures=this.creatures.filter(c=>!c.summoner||c.alive);const attacks=[];for(const creature of this.creatures){const beforeX=creature.x,beforeY=creature.y;const attack=creature.update(dt,now,player,canMove);creature.moving=Math.hypot(creature.x-beforeX,creature.y-beforeY)>.001;if(attack)attacks.push(attack);}return attacks;}
+  update(dt,now,player,canMove){
+    const attacks=[];let kept=0;
+    for(let i=0;i<this.creatures.length;i++){
+      const creature=this.creatures[i];if(creature.summoner&&!creature.alive)continue;this.creatures[kept++]=creature;
+      const dx=creature.x-player.x,dy=creature.y-player.y,range=Math.max(1100,creature.aggroRange*1.4);
+      // Sleeping creatures still respawn on schedule, but do not run their AI.
+      if(creature.alive&&(creature.layer!==player.layer||dx*dx+dy*dy>range*range)){creature.moving=false;continue;}
+      const beforeX=creature.x,beforeY=creature.y,attack=creature.update(dt,now,player,canMove);
+      const movedX=creature.x-beforeX,movedY=creature.y-beforeY;creature.moving=movedX*movedX+movedY*movedY>.000001;
+      if(attack)attacks.push(attack);
+    }
+    this.creatures.length=kept;return attacks;
+  }
 }
 
 export function populateCreatures(registry){

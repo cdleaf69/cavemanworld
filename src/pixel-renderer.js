@@ -19,6 +19,9 @@ import { CASINO_BUILDING,CASINO_FIXTURES } from './world.js';
 import {buildingForLayer,TOWN_BUILDINGS,TOWNS,fixturesForBuilding} from './town-data.js';
 import {townObjects} from './town-art.js';
 
+const maximumMountainLift=Math.max(...MOUNTAINS.map(m=>m.height*.38));
+const staticElevations=new WeakMap();
+function staticElevation(item,layer){if(layer!=='surface')return 0;let value=staticElevations.get(item);if(!value||value.x!==item.x||value.y!==item.y){value={x:item.x,y:item.y,height:elevationOffset(item.x,item.y)};staticElevations.set(item,value);}return value.height;}
 const clampHealth=(health,max)=>Math.max(0,Math.min(1,health/Math.max(1,max)));
 
 export class PixelWorldRenderer extends WorldRenderer {
@@ -28,7 +31,7 @@ export class PixelWorldRenderer extends WorldRenderer {
     this.dpr=1;this.width=this.canvas.clientWidth;this.height=this.canvas.clientHeight;
     this.canvas.width=Math.round(this.width);this.canvas.height=Math.round(this.height);
   }
-  render({camera,zoom,player,layer,zones,showZones,selectedZone,editZones,spawnables,structures,creatures,drops,projectiles,fishing,targetNode,targetDrop,inventory,time,frontier}){
+  render({camera,zoom,player,layer,zones,showZones,selectedZone,editZones,spawnables,structures,creatures,drops,projectiles,fishing,targetNode,targetDrop,inventory,time,frontier,hoveredNode}){
     const ctx=this.ctx,d=this.dpr,b=this.viewBounds(camera,zoom);
     ctx.setTransform(d,0,0,d,0,0);ctx.imageSmoothingEnabled=false;ctx.fillStyle=layer==='surface'?'#60764a':'#202b2e';ctx.fillRect(0,0,this.width,this.height);
     ctx.save();ctx.translate(this.width/2,this.height/2);ctx.scale(zoom,zoom*CAMERA_TILT);ctx.translate(-camera.x,-camera.y);
@@ -38,7 +41,7 @@ export class PixelWorldRenderer extends WorldRenderer {
     const visible=(x,y,pad=300)=>x>b.left-pad&&x<b.right+pad&&y>b.top-pad&&y<b.bottom+pad;
     const objects=[],underBridgeActors=[],coveredBridges=new Set();const addActor=(actor,draw)=>{const bridge=layer==='surface'&&actor.swimming&&(actor.jumpHeight||0)<22&&!actor.flightHeight?bridgeAt(actor.x,actor.y,80):null;if(bridge){underBridgeActors.push({actor,draw});coveredBridges.add(bridge);}else objects.push({x:actor.x,y:actor.y,draw,playerForeground:actor===player});};
     // Include sprite height and the raised terrain when querying ground anchors.
-    const entityBounds={left:b.left-256,right:b.right+256,top:b.top-256,bottom:b.bottom+Math.max(...MOUNTAINS.map(m=>m.height*.38))+320};
+    const entityBounds={left:b.left-256,right:b.right+256,top:b.top-256,bottom:b.bottom+maximumMountainLift+320};
     for(const p of projectiles.puddles||[]){
       if(p.layer!==layer||!visible(p.x,p.y,950))continue;
       const age=time-p.createdAt,grow=Math.min(1,age/350),fade=Math.min(1,(p.expiresAt-time)/1800);
@@ -51,8 +54,8 @@ export class PixelWorldRenderer extends WorldRenderer {
     if(layer==='surface')drawMountains(ctx,b,time);
     if(building)objects.push(...(building.type==='convenience'?storeObjects(ctx,this.art,time):building.type==='casino'?casinoObjects(ctx,this.art,time):townObjects(ctx,this.art,building,time)));
     const items=spawnables.visible(entityBounds,layer);
-    for(const decoration of items.decorations)objects.push({x:decoration.x,y:decoration.y,draw:()=>this.art.decoration(ctx,decoration)});
-    for(const node of items.nodes)objects.push({x:node.x,y:node.y,draw:()=>this.art.resource(ctx,node,time,player)});
+    for(const decoration of items.decorations){const elevation=staticElevation(decoration,layer),y=decoration.y-elevation;if(decoration.x<b.left-160||decoration.x>b.right+160||y<b.top-100||y>b.bottom+200)continue;objects.push({x:decoration.x,y:decoration.y,elevation,draw:()=>this.art.decoration(ctx,decoration)});}
+    for(const node of items.nodes){const elevation=staticElevation(node,layer),y=node.y-elevation,scale=node.scale||1;if(node.x<b.left-190*scale||node.x>b.right+190*scale||y<b.top-100*scale||y>b.bottom+(node.kind==='tree'?300:180)*scale)continue;objects.push({x:node.x,y:node.y,elevation,draw:()=>this.art.resource(ctx,node,time,player,node===hoveredNode)});} 
     if(layer==='surface'){
       for(const building of TOWN_BUILDINGS)if(!building.hut&&visible(building.x,building.y))objects.push({y:building.y+60,draw:()=>drawCasinoBuilding(ctx,this.art,building)});
       HUTS.forEach((hut,index)=>{if(visible(hut.x,hut.y))objects.push({y:hut.y,draw:()=>this.art.hut(ctx,hut,index)});});
@@ -72,7 +75,8 @@ export class PixelWorldRenderer extends WorldRenderer {
     addActor(player,()=>{drawTransport(ctx,player,time);this.art.player(ctx,{...player,swimming:player.swimming&&!player.vehicle?.boat},inventory,time,fishing);});
     for(const {actor,draw} of underBridgeActors){ctx.save();ctx.translate(0,-elevationOffset(actor.x,actor.y));draw();ctx.restore();}
     for(const bridge of coveredBridges)this.art.paintBridge(ctx,bridge);
-    objects.sort((a,b)=>(Number(!!a.playerForeground)-Number(!!b.playerForeground))||(a.y-(layer==='surface'?elevationOffset(a.x||0,a.y):0))-(b.y-(layer==='surface'?elevationOffset(b.x||0,b.y):0)));for(const object of objects){ctx.save();if(layer==='surface')ctx.translate(0,-elevationOffset(object.x||0,object.y));object.draw();ctx.restore();}
+    for(const object of objects){object.elevation??=layer==='surface'?elevationOffset(object.x||0,object.y):0;object.screenY=object.y-object.elevation;}
+    objects.sort((a,b)=>(Number(!!a.playerForeground)-Number(!!b.playerForeground))||a.screenY-b.screenY);for(const object of objects){ctx.save();if(object.elevation)ctx.translate(0,-object.elevation);object.draw();ctx.restore();}
     if(layer==='surface'&&fishing?.active){
       const {x,y}=fishing.castPoint;
       const tip=this.art.fishingRodTip(player,fishing,time);
@@ -107,17 +111,25 @@ export class PixelWorldRenderer extends WorldRenderer {
     }
   }
   drawWaterMotion(ctx,b,time){
+    const signature=[Math.floor(b.left/38),Math.ceil(b.right/38),Math.floor(b.top/38),Math.ceil(b.bottom/38)].join(':');
+    if(signature!==this.waterGeometryKey){
+    this.waterGeometryKey=signature;this.waterPoints=[];
     const flowing=RIVER_SEGMENTS.filter(s=>s.right>b.left-180&&s.left<b.right+180&&s.bottom>b.top-180&&s.top<b.bottom+180);
     const bridges=BRIDGE_SPANS.filter(s=>s.x+s.length>b.left-120&&s.x-s.length<b.right+120&&s.y+s.length>b.top-120&&s.y-s.length<b.bottom+120);
     const lakes=LAKES.filter(l=>l.x+l.rx>b.left&&l.x-l.rx<b.right&&l.y+l.ry>b.top&&l.y-l.ry<b.bottom);
-    const step=38,animationFrame=Math.floor(time/170);
+    const step=38;
     for(let gy=Math.floor(b.top/step)-1;gy<=Math.ceil(b.bottom/step);gy++)for(let gx=Math.floor(b.left/step)-1;gx<=Math.ceil(b.right/step);gx++){
       if(grain(gx,gy,31)<.42)continue;
       const x=gx*step+Math.floor(grain(gx,gy,45)*20),y=gy*step+Math.floor(grain(gx,gy,47)*17);
       if(oceanDistance(x,y)>-12&&riverDistance(x,y,flowing)>RIVER_HALF_WIDTH-12&&!lakes.some(l=>lakeDistance(l,x,y)<-12))continue;
       if(bridges.some(s=>distanceToSegment(x,y,s.x,s.y,s.x+Math.cos(s.angle)*s.length,s.y+Math.sin(s.angle)*s.length)<59))continue;
       const length=grain(gx,gy,57)>.76?8:4;
-      const frame=(animationFrame+Math.floor(grain(gx,gy,61)*4))%4;
+      this.waterPoints.push({x,y,length,phase:Math.floor(grain(gx,gy,61)*4)});
+    }
+    }
+    const animationFrame=Math.floor(time/170);
+    for(const {x,y,length,phase} of this.waterPoints){
+      const frame=(animationFrame+phase)%4;
       ctx.fillStyle='#9de9ed';ctx.fillRect(x,y+2,length,1);
       ctx.fillStyle='#e5fff3';
       if(frame===0){ctx.fillRect(x+1,y,Math.max(2,length-2),1);ctx.fillRect(x+2,y+2,2,1);}

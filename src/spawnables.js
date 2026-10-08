@@ -4,6 +4,7 @@ import {forageCrop} from './gardening.js';
 const nodeRegistries=new WeakMap();
 function readNodeActive(){return this._active;}
 function writeNodeActive(value){this._active=value;const registry=nodeRegistries.get(this);if(registry){if(value)registry.sleeping.delete(this);else registry.sleeping.add(this);}}
+const nodeActiveProperties={_active:{value:true,writable:true},active:{enumerable:true,configurable:true,get:readNodeActive,set:writeNodeActive}};
 // Runtime objects are deliberately separate from the vector terrain. The
 // spawner creates these from polygon zones; the terrain renderer never does.
 export const TIERS = Object.freeze({
@@ -28,10 +29,7 @@ export const ORE_RARITY = Object.freeze({
 export class ResourceNode {
   constructor({ id, kind, resource, x, y, layer, zoneId, quantity = 1, radius = 20, respawnMs = 90000 }) {
     Object.assign(this, { id, kind, resource, x, y, layer, zoneId, quantity, maxQuantity: quantity, radius, respawnMs });
-    Object.defineProperties(this,{
-      _active:{value:true,writable:true},
-      active:{enumerable:true,configurable:true,get:readNodeActive,set:writeNodeActive},
-    });
+    Object.defineProperties(this,nodeActiveProperties);
     this.respawnAt = 0;
     this.blocking = ['tree', 'rock', 'ore'].includes(kind);
   }
@@ -42,16 +40,20 @@ export class ResourceNode {
     }[this.resource] })[this.kind] || this.kind;
   }
   get rarity(){return this.kind==='ore'?ORE_RARITY[this.resource]?.label:null;}
-  take(now, equippedTool = null) {
-    if (!this.active) return { ok: false, message: 'Already gathered' };
-    if (now < (this.nextHitAt || 0)) return { ok:false, cooldown:true };
+  gatherRequirement(equippedTool=null){
     if(this.kind==='tree'&&equippedTool?.type!=='axe')return {ok:false,message:'Trees need an axe. Craft a Crude Stone Axe with 2 sticks + 2 stones (C).'};
     if(this.kind==='rock'&&equippedTool?.type!=='pickaxe')return {ok:false,message:'This boulder needs a pickaxe. Pick up small pebbles by hand.'};
     const material=MATERIALS.find(m=>m.id===this.resource);
     const minimum=material?.minimumRank||(['obsidian','moonstone'].includes(this.resource)?TIERS.iron.rank:TIERS.stone.rank);
-    if (this.kind === 'ore' && !(equippedTool?.type === 'pickaxe' && TIERS[equippedTool.tier].rank >= minimum)) {
+    if (this.kind === 'ore' && !(equippedTool?.type === 'pickaxe' && (TIERS[equippedTool.tier]?.rank||0) >= minimum)) {
       return { ok: false, message: material?.depth>=3?`This vein needs a depth ${material.depth-1} pickaxe or better`:minimum===TIERS.iron.rank?'This rare vein needs an Iron Pickaxe (C)':'Equip a Stone Pickaxe or better (C)' };
     }
+    return {ok:true,message:['ground','bush'].includes(this.kind)?'Gather by hand':'Gather with your equipped tool'};
+  }
+  take(now, equippedTool = null) {
+    if (!this.active) return { ok: false, message: 'Already gathered' };
+    if (now < (this.nextHitAt || 0)) return { ok:false, cooldown:true };
+    const requirement=this.gatherRequirement(equippedTool);if(!requirement.ok)return requirement;
     this.nextHitAt=now+600;
     if(this.blocking){
       this.quantity-=equippedTool.power;
