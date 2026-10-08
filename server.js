@@ -16,7 +16,7 @@ async function asset(file,info){
  let entry=assets.get(file);
  if(entry&&entry.modified===info.mtimeMs&&entry.size===info.size){assets.delete(file);assets.set(file,entry);return entry;}
  if(entry){assetBytes-=entry.bytes;assets.delete(file);}
- const body=await readFile(file),zipped=body.length>1024?await compress(body):null;
+ const body=await readFile(file),zipped=body.length>1024&&['.html','.css','.js','.json','.svg','.ttf'].includes(extname(file))?await compress(body):null;
  entry={modified:info.mtimeMs,size:info.size,body,zipped,bytes:body.length+(zipped?.length||0),etag:`W/"${info.size}-${info.mtimeMs}"`};
  assets.set(file,entry);assetBytes+=entry.bytes;
  while(assets.size>64||assetBytes>32*1024*1024){const oldest=assets.keys().next().value;assetBytes-=assets.get(oldest).bytes;assets.delete(oldest);}
@@ -37,15 +37,16 @@ createServer(async(req,res)=>{
   }
   if(url.pathname.startsWith('/api/')){json(res,404,{error:'Unknown endpoint'});return;}
   const file=resolve(root,`.${decodeURIComponent(url.pathname)==='/'?'/index.html':decodeURIComponent(url.pathname)}`);if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}const info=await stat(file);if(!info.isFile())throw Error();if(extname(file)==='.mp3'){
-   const body=await readFile(file),match=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range||'');
+   const {body}=await asset(file,info),match=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range||'');
    if(match){const start=Number(match[1]),end=Math.min(body.length-1,match[2]?Number(match[2]):body.length-1);if(start> end){res.writeHead(416,{'Content-Range':`bytes */${body.length}`}).end();return;}res.writeHead(206,{'Content-Type':'audio/mpeg','Accept-Ranges':'bytes','Content-Range':`bytes ${start}-${end}/${body.length}`,'Content-Length':end-start+1});res.end(req.method==='HEAD'?undefined:body.subarray(start,end+1));return;}
    res.writeHead(200,{'Content-Type':'audio/mpeg','Accept-Ranges':'bytes','Content-Length':body.length,'Cache-Control':'no-cache'}).end(req.method==='HEAD'?undefined:body);return;
-  }const entry=await asset(file,info),headers={'Content-Type':mime[extname(file)]||'application/octet-stream','Cache-Control':'no-cache','ETag':entry.etag,'Vary':'Accept-Encoding'};
-  if(req.headers['if-none-match']===entry.etag){res.writeHead(304,headers).end();return;}
+  }const headers={'Content-Type':mime[extname(file)]||'application/octet-stream','Cache-Control':'no-cache','ETag':`W/"${info.size}-${info.mtimeMs}"`,'Vary':'Accept-Encoding'};
+  if(req.headers['if-none-match']===headers.ETag){res.writeHead(304,headers).end();return;}
+  const entry=await asset(file,info);
   const zipped=entry.zipped&&/\bgzip\b(?!\s*;\s*q=0(?:\.0*)?(?:\s*[,;]|$))/i.test(req.headers['accept-encoding']||'');
   if(zipped)headers['Content-Encoding']='gzip';res.writeHead(200,headers).end(req.method==='HEAD'?undefined:zipped?entry.zipped:entry.body);
  }catch{res.writeHead(404).end('Not found');}
-}).listen(port,'0.0.0.0',()=>{console.log(`Embervale: http://localhost:${port}`);for(const addresses of Object.values(networkInterfaces()))for(const a of addresses||[])if(a.family==='IPv4'&&!a.internal)console.log(`LAN: http://${a.address}:${port}`);});
+}).listen(port,'0.0.0.0',()=>{console.log(`CaveManWorld: http://localhost:${port}`);for(const addresses of Object.values(networkInterfaces()))for(const a of addresses||[])if(a.family==='IPv4'&&!a.internal)console.log(`LAN: http://${a.address}:${port}`);});
 setInterval(()=>{for(const p of world.players.values())if(Date.now()-p.lastSeen>20000)world.leave(p.id);},5000).unref();
 
 setInterval(()=>world.tick(),33).unref();

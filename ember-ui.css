@@ -79,3 +79,9 @@ body,button,input,select,textarea{font-family:EmberRunes,monospace}button{font-w
 #recipeList .recipe-card>div{min-width:0}
 #recipeList .recipe-card .item-art{flex-shrink:0}
 @media(max-width:760px){#craftModal .craft-modal-card{height:calc(100dvh - 16px)}#recipeList{grid-auto-rows:200px}#recipeList .recipe-card{height:200px}.craft-pagination{grid-template-columns:94px minmax(0,1fr) 94px}}
+
+.inventory-item-actions{display:flex;gap:3px;margin-top:auto;width:100%;justify-content:center}.inventory-item-actions button{font-size:8px;padding:5px 4px;min-width:0;flex:1}.inventory-drag-handle{cursor:grab;touch-action:none}.inventory-drag-handle:active{cursor:grabbing}#inventoryItemInfo{max-width:390px;width:calc(100% - 40px);padding:22px;background:#e6d1a7;color:#553c29;border:4px solid #785431;box-shadow:5px 5px #30291f}#inventoryItemInfo::backdrop{background:#101a1cb0}#inventoryItemInfo p{font-size:12px;line-height:1.8}#inventoryItemInfo h3{font-size:15px}
+
+#bagResources .inventory-resource-tile,#ownedWeapons .recipe-card,#ownedArmor .recipe-card,#ownedStructures .recipe-card{background:rgba(92,76,48,.16)}.inventory-amount{display:flex;flex-direction:column;gap:3px;width:100%;font-size:8px;text-align:left;margin-top:auto}.inventory-amount input{box-sizing:border-box;width:100%;min-width:0;padding:4px;color:#513b28;background:#fff2cf70;border:1px solid #977a50;font:inherit}.inventory-item-actions{margin-top:2px}
+
+#resourceHoverLabel{position:fixed;z-index:80;pointer-events:none;max-width:340px;padding:7px 9px;background:#1c322de8;border:2px solid #75be79;color:#b8efac;font-size:10px;line-height:1.6;box-shadow:2px 2px #18231c;}#resourceHoverLabel.unavailable{color:#ffd7aa;border-color:#b98962}#resourceHoverLabel[hidden]{display:none}

@@ -1,4 +1,4 @@
-# Embervale
+# CaveManWorld
 
 A top-down caveman exploration and crafting game built with HTML, CSS, and modular JavaScript. The Node server uses only the standard library. Artwork is generated locally; no external assets or paid services are required. Players, chat, PvP combat, rafts and placed structures are shared through the local Node server. Inventory, creatures and quests are still local beta state.
 
@@ -230,3 +230,8 @@ Descend from the Primordial Vault (cave layer 6) into the seventh underground la
 At player level 5 with a Bark Workbench unlocked, craft Steezus’s Book from 1 Old Testament and 7 Sulfur in the Weapons tab. It is a collectible relic, can be crafted repeatedly and is carried as a resource. The Item Index includes guides for player levels 1–20, required workshops, materials and special quest rewards. Inventory resources and equipment use labeled picture tiles.
 
 Tickets cost 25 coins at the store’s lottery machine. Rub the silver panel with a mouse or finger to reveal the result: 3% Steezus’s Book, 15% 1–3 dried marijuana, 42% 20/40/75/150 coins, 40% no prize. Only one unclaimed ticket is allowed; reopening the machine preserves its scratch progress during the current game session. A prize can only be claimed once.
+
+
+### Performance and teleport loading
+
+The next descent now preloads its visible terrain and atlas; terrain planning, water geometry, and object elevations are reused rather than recalculated unnecessarily. Worker layout transfers and hydration are lighter, and browser/server asset caching avoids repeat reads and compression. Background chunk jobs remain bounded even at wide zoom. Graphics and scenery density are unchanged. See `PERFORMANCE.md` for measured results and verification.

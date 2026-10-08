@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#171c19">
-  <title>Embervale — a caveman world</title>
+  <title>CaveManWorld — a caveman world</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23354b49' d='M0 0h32v32H0z'/%3E%3Cpath fill='%23edce91' d='M14 4h4v5h-4zM14 23h4v5h-4zM4 14h5v4H4zM23 14h5v4h-5zM10 10h12v12H10z'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./pixel-ui.css">
@@ -15,11 +15,11 @@
 </head>
 <body>
   <div id="worldLoading" role="status" style="position:fixed;inset:0;z-index:99999;display:grid;place-content:center;background:#293f43;color:#ffe3a0;font:700 18px monospace;text-align:center">Preparing your adventure…<small style="margin-top:14px;font-size:12px;color:#b9d6bc">Growing the wilderness · keeping every detail</small></div>
-  <canvas id="world" aria-label="Playable top-down map of Embervale"></canvas>
+  <canvas id="world" aria-label="Playable top-down map of CaveManWorld"></canvas>
   <div class="vignette" aria-hidden="true"></div>
 
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">✺</span><span><strong>EMBER<span>VALE</span></strong><small>LEAF · STONE · MISCHIEF</small></span></div>
+    <div class="brand"><span class="brand-mark">✺</span><span><strong>CaveMan<span>World</span></strong><small>LEAF · STONE · MISCHIEF</small></span></div>
     <div class="session"><span class="status-dot"></span> CONNECTING TO LAN</div>
     <button id="settingsButton" class="icon-button" title="HUD settings (O)" aria-label="HUD settings">⚙</button><button id="helpButton" class="icon-button" title="Controls" aria-label="Show controls">?</button>
   </header>
@@ -86,7 +86,7 @@
   </div>
   <div id="mapModal" class="modal hidden" role="dialog" aria-label="Full world map">
     <div class="modal-card map-modal-card">
-      <div class="modal-header"><div><div class="eyebrow">EMBERVALE ATLAS</div><h2 id="atlasTitle">Surface world</h2></div><button class="close-button" data-close="mapModal" aria-label="Close map">×</button></div>
+      <div class="modal-header"><div><div class="eyebrow">CaveManWorld ATLAS</div><h2 id="atlasTitle">Surface world</h2></div><button class="close-button" data-close="mapModal" aria-label="Close map">×</button></div>
       <div class="atlas-controls"><span>SCROLL TO ZOOM · DRAG TO PAN</span><span id="mapZoom">1.0×</span><button id="mapReset" type="button">FULL MAP</button></div>
       <div id="atlasViewport" class="atlas-viewport"><canvas id="fullMap" width="960" height="746" aria-label="World atlas. Scroll to zoom; drag to pan."></canvas></div>
       <p class="atlas-note"><kbd>E</kbd>: enter towns and caves, talk to NPCs. Towns offer shops, upgrades and loot. Deeper caves have better ore and tougher mobs. <kbd>M</kbd>: close map.</p>
@@ -121,7 +121,7 @@
   </div>
   <div id="campfireModal" class="modal hidden" role="dialog" aria-label="Campfire cooking"><div class="modal-card settings-modal-card"><div class="modal-header"><div><div class="eyebrow">WARMTH AND FOOD</div><h2>Campfire</h2></div><button class="close-button" data-close="campfireModal" aria-label="Close campfire">×</button></div><p>Add wood for fuel, then add raw meat or fish. Each wood cooks four pieces. Cooking takes four seconds per piece.</p><div class="fire-stats"><div>Fuel <b id="campfireFuel">0</b></div><div>Raw meat <b id="campfireRaw">0</b></div><div>Cooked meat <b id="campfireCooked">0</b></div><div>Raw fish <b id="campfireRawFish">0</b></div><div>Cooked fish <b id="campfireCookedFish">0</b></div><div>Cooking <b id="campfireProgress">Idle</b></div></div><div class="fire-actions"><button id="addFuelButton" class="bag-action">Add 1 wood</button><button id="addRawButton" class="bag-action">Add 1 raw meat</button><button id="addFishButton" class="bag-action">Add 1 raw fish</button><button id="collectCookedButton" class="bag-action">Collect cooked meat</button><button id="collectFishButton" class="bag-action">Collect cooked fish</button></div><p>To pick up this campfire, equip a pickaxe and click it three times.</p></div></div>
   <div id="helpModal" class="modal hidden" role="dialog" aria-label="Controls">
-    <div class="modal-card help-modal-card"><div class="modal-header"><div><div class="eyebrow">FIELD GUIDE</div><h2>Explore Embervale</h2></div><button class="close-button" data-close="helpModal" aria-label="Close controls">×</button></div>
+    <div class="modal-card help-modal-card"><div class="modal-header"><div><div class="eyebrow">FIELD GUIDE</div><h2>Explore CaveManWorld</h2></div><button class="close-button" data-close="helpModal" aria-label="Close controls">×</button></div>
       <div class="help-grid"><div><kbd>W A S D</kbd></div><div>Move and face four directions; combine keys for diagonal movement</div><div>Move mouse</div><div>Pan the camera and aim clicks (does not turn your character)</div><div><kbd>Shift</kbd></div><div>Sprint at 2.5× walking speed</div><div><kbd>Alt</kbd></div><div>Beta travel boost: 10× current speed while held</div><div><kbd>Mouse wheel</kbd> or <kbd>+ −</kbd></div><div>Zoom toward your character</div><div><kbd>1–6</kbd></div><div>Select a hotbar item, including while holding Shift</div><div><kbd>E</kbd></div><div>Pick up loot, forage, open campfires, use town counters/chests, or enter buildings and caves</div><div>Left click</div><div>Gather a resource, place a structure, or attack</div><div><kbd>V</kbd></div><div>Dive / surface in the ocean; deep swimming dives automatically</div><div><kbd>J</kbd></div><div>Quest journal and NPC locations</div><div><kbd>R</kbd></div><div>Rotate a base wall or gate before placement</div><div><kbd>Space</kbd></div><div>Jump (collisions remain active)</div><div><kbd>H</kbd></div><div>Eat 1 cooked meat to heal 40 health</div><div><kbd>C</kbd></div><div>Craft weapons, armor, and structures</div><div><kbd>I</kbd></div><div>Inventory and hotbar assignment</div><div><kbd>P</kbd></div><div>Show or hide Your Pouch</div><div><kbd>O</kbd></div><div>HUD settings</div><div><kbd>M</kbd></div><div>Open the atlas</div><div><kbd>F3</kbd></div><div>Inspect spawn zones</div></div>
       <p>Pick up pebbles and sticks around the hearth. Bushes give sticks and leaves by hand. Trees need an axe; boulders need a pickaxe. Click each node to gather. Put a crafted Fishing Rod on your hotbar, then click lake water from shore. Get bait from Marlow and select it in your bag. Watch for water disturbance; when the bobber bites, click repeatedly or tap <kbd>E</kbd> to reel the fish in. A campfire needs wood fuel to cook raw meat or fish. Click it with a pickaxe three times to recover it. Resources regrow. Zone boundaries can only be edited in developer mode (<code>?dev=1</code>). Players and bases are shared over the local network. Quests, creatures and inventory remain local beta state.</p>
     </div>

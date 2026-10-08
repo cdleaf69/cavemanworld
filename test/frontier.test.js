@@ -31,7 +31,7 @@ test('fisherman has ten completable sequential quests; final armor is not crafta
  Object.assign(book.proof,{treasures:3,deepTreasures:5,reefCrab:5,seaPredators:3});
  for(let i=0;i<10;i++){assert.equal(book.fisherman,i);assert.ok(book.ready(FISHERMAN,inv));assert.ok(book.claim(FISHERMAN,inv).ok);if(i<9)assert.equal(inv.owned.has('tidekeeper-armor'),false);}
  assert.ok(inv.owned.get('tidekeeper-armor') instanceof Gear);assert.equal(inv.equippedGear,null);assert.equal(inv.equippedTool,null);assert.equal(inv.fishingQuest,10);const coins=inv.coins;assert.equal(book.claim(FISHERMAN,inv).ok,false);assert.equal(inv.coins,coins);
- const hotbar=new Hotbar();assert.equal(hotbar.allowed({kind:'equipment',id:'tidekeeper-armor'},inv),false);
+ const hotbar=new Hotbar();assert.equal(hotbar.allowed({kind:'equipment',id:'tidekeeper-armor'},inv),true);
 });
 test('NPCs retain the humanoid model with distinct appearances and valid woodland/cave positions',()=>{
  const npcs=new NpcRegistry();assert.ok(npcs.items.filter(n=>n.role==='woods').length>=5);assert.ok(npcs.items.filter(n=>n.role==='cave').length>=12);

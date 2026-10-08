@@ -4,13 +4,13 @@ import { Inventory } from '../src/crafting.js';
 import { Hotbar } from '../src/hotbar.js';
 import { grantBetaItem } from '../src/beta.js';
 
-test('armor stays in inventory and cannot enter a hotbar slot',()=>{
+test('owned armor can enter a hotbar slot without auto equipping on placement',()=>{
   const bag=new Inventory({level:20}),bar=new Hotbar();
   bag.add('leaves',3);assert.equal(bag.craft('leaf-wrap').ok,true);
   assert.equal(bag.equippedGear,null);
-  assert.equal(bar.assign('equipment','leaf-wrap'),-1);
-  assert.equal(bar.place(0,{kind:'equipment',id:'leaf-wrap'},bag),false);
-  assert.equal(bar.slots[0],null);
+  assert.equal(bar.assign('equipment','leaf-wrap'),0);
+  assert.equal(bar.place(0,{kind:'equipment',id:'leaf-wrap'},bag),true);
+  assert.deepEqual(bar.slots[0],{kind:'equipment',id:'leaf-wrap'});
   bag.equip('leaf-wrap');assert.equal(bag.equippedGear.id,'leaf-wrap');
   bag.unequip('leaf-wrap');assert.equal(bag.equippedGear,null);
   grantBetaItem(bag,'quartz-armor');assert.equal(bag.equippedGear,null);
